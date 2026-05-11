@@ -368,15 +368,10 @@ def radar_plot(pivot):
     fig.update_traces(fill="toself")
 
     fig.update_layout(
-        height=500,
-        autosize=True,
-        margin=dict(l=80, r=80, t=40, b=40),
+        margin=dict(l=100, r=100, t=40, b=40),
         polar=dict(
-            radialaxis=dict(
-                range=[1, 7]
-            ),
             angularaxis=dict(
-                automargin=True
+                tickangle=0  # or -45 for long labels
             )
         )
     )
