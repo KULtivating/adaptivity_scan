@@ -3,25 +3,28 @@ from datetime import datetime
 import pandas as pd
 import plotly.express as px
 import gspread
+import streamlit.components.v1 as components
 from google.oauth2.service_account import Credentials
 
 # ---------------------------
 # APP CONFIG
 # ---------------------------
+st.markdown('<div id="top"></div>', unsafe_allow_html=True)
+
 st.set_page_config(
     page_title="Adaptivity Maturiteitsscan",
     layout="wide"
 )
 
-col1, col2 = st.columns([1, 4])
+col1, col2 = st.columns([4, 1])
 
 with col1:
-    st.image("logo.webp", width=180)
+    st.title("Adaptiviteit Maturiteitsscan")
+#   st.markdown("### Hoe futureproof ben jij?")
 
 with col2:
-    st.title("Adaptivity Maturiteitsscan")
-    st.markdown("### Hoe futureproof ben jij?")
-    st.markdown("Vul deze korte vragenlijst in en kom het meteen te weten")
+    st.image("logo Coliberate.png", width=100)
+    st.image("logo KULtivating.webp", width=100)
 
 # ---------------------------
 # GOOGLE SHEETS CONNECTION
@@ -37,6 +40,7 @@ def connect_sheet():
         st.secrets["gcp_service_account"],
         scopes=scope
     )
+
 
     client = gspread.authorize(creds)
 
@@ -71,31 +75,31 @@ question_map = {
 "Ik neem zelf initiatief om veranderingen in de praktijk te brengen.": {"pillar": "VA", "direction": "pos", "block": 2, "code": "CR_CP3"},
 
 "Ik ben gemotiveerd om nieuwe dingen te leren.": {"pillar": "LO", "direction": "pos", "block": 2, "code": "LO_M"},
-"Ik kan me gemakkelijk aanpassen aan veranderende situaties.": {"pillar": "AZR", "direction": "pos", "block": 2, "code": "Res2"},
-"Ik herstel snel wanneer ik te maken krijg met tegenslag.": {"pillar": "AZR", "direction": "pos", "block": 2, "code": "Res3"},
-"Ik blijf rustig in situaties waarin ik veel beslissingen moet nemen.": {"pillar": "AZR", "direction": "pos", "block": 2, "code": "IAP_WS1"},
-"Ik pas mijn werk gemakkelijk aan nieuwe omstandigheden aan.": {"pillar": "AZR", "direction": "pos", "block": 2, "code": "IAP_R2"},
-"Ik pas mijn gedrag graag aan wanneer dat nodig is om goed samen te werken.": {"pillar": "AZR", "direction": "pos", "block": 2, "code": "IAP_I2"},
+"Ik kan me gemakkelijk aanpassen aan veranderende situaties.": {"pillar": "VZ", "direction": "pos", "block": 2, "code": "Res2"},
+"Ik herstel snel wanneer ik te maken krijg met tegenslag.": {"pillar": "VZ", "direction": "pos", "block": 2, "code": "Res3"},
+"Ik blijf rustig in situaties waarin ik veel beslissingen moet nemen.": {"pillar": "VZ", "direction": "pos", "block": 2, "code": "IAP_WS1"},
+"Ik pas mijn werk gemakkelijk aan nieuwe omstandigheden aan.": {"pillar": "VZ", "direction": "pos", "block": 2, "code": "IAP_R2"},
+"Ik pas mijn gedrag graag aan wanneer dat nodig is om goed samen te werken.": {"pillar": "VZ", "direction": "pos", "block": 2, "code": "IAP_I2"},
 "Ik volg regelmatig opleidingen op of naast het werk, om mijn vaardigheden up-to-date te houden.": {"pillar": "LO", "direction": "pos", "block": 2, "code": "IAP_T1"},
 "Binnen mijn team of afdeling doen mensen een beroep op mij om nieuwe oplossingen aan te reiken.": {"pillar": "CI", "direction": "pos", "block": 4, "code": "IAP_C2"},
 
 "Ik ga actief op zoek naar elke kans die mij helpt om mijn functioneren te verbeteren (opleiding, groepsproject, uitwisseling met collega’s, enz.).": {"pillar": "LO", "direction": "pos", "block": 3, "code": "IAP_T2"},
 "Ik neem zelf initiatief om te beslissen wat en hoe ik leer.": {"pillar": "LO", "direction": "pos", "block": 3, "code": "LO_A"},
 
-"Ik volg mijn omgeving actief op om te zien wat mijn job of organisatie in de toekomst kan beïnvloeden.": {"pillar": "TV", "direction": "pos", "block": 4, "code": "PB_SS1"},
-"Ik denk vooruit over mogelijke veranderingen in mijn job of organisatie als gevolg van ontwikkelingen in de omgeving (bv. markt, technologie).": {"pillar": "TV", "direction": "pos", "block": 4, "code": "PB_SS3"},
-"Ik probeer werkwijzen en systemen te ontwikkelen die op lange termijn goed werken, ook als dat in het begin wat meer tijd kost.": {"pillar": "TV", "direction": "pos", "block": 4, "code": "PB_PP1"},
-"Ik probeer de echte oorzaak te vinden van problemen die zich voordoen.": {"pillar": "TV", "direction": "pos", "block": 3, "code": "PB_PP2"},
+"Ik volg de wereld rondom mij actief op om te zien wat mijn job in de toekomst kan beïnvloeden.": {"pillar": "VV", "direction": "pos", "block": 4, "code": "PB_SS1"},
+"Ik denk vooruit over mogelijke veranderingen in mijn organisatie als gevolg van ontwikkelingen in de wereld rondom mij (bv. markt, technologie).": {"pillar": "VV", "direction": "pos", "block": 4, "code": "PB_SS3"},
+"Ik probeer werkwijzen en systemen te ontwikkelen die op lange termijn goed werken, ook als dat in het begin wat meer tijd kost.": {"pillar": "VV", "direction": "pos", "block": 4, "code": "PB_PP1"},
+"Ik probeer de echte oorzaak te vinden van problemen die zich voordoen.": {"pillar": "VV", "direction": "pos", "block": 3, "code": "PB_PP2"},
 
-"Ik anticipeer op mogelijke problemen door vooraf scenario’s uit te werken en beslissingsopties klaar te hebben voordat ze nodig zijn.": {"pillar": "TV", "direction": "pos", "block": 4, "code": "IAP_Rx"},
-"Ik bouw bewust netwerkrelaties op die mij en anderen helpen om toekomstige veranderingen beter op te vangen of te benutten.": {"pillar": "TV", "direction": "pos", "block": 4, "code": "IAP_Ix"},
-"Ik help anderen niet alleen in moeilijke situaties, maar help ook om toekomstige crisissituaties beter te structureren en voorkomen.": {"pillar": "TV", "direction": "pos", "block": 4, "code": "IAP_WSx"},
+"Ik anticipeer op mogelijke problemen door vooraf scenario’s uit te werken en beslissingsopties klaar te hebben voordat ze nodig zijn.": {"pillar": "VV", "direction": "pos", "block": 4, "code": "IAP_Rx"},
+"Ik bouw bewust netwerkrelaties op die mij en anderen helpen om toekomstige veranderingen beter op te vangen of te benutten.": {"pillar": "VV", "direction": "pos", "block": 4, "code": "IAP_Ix"},
+"Ik zorg voor minder stress in de toekomst door structuren en processen te verbeteren en zo crisis situaties te voorkomen.": {"pillar": "VV", "direction": "pos", "block": 4, "code": "IAP_WSx"},
 
 "Ik bedenk nieuwe manieren om technologie beter te gebruiken in mijn werk.": {"pillar": "CI", "direction": "pos", "block": 4, "code": "IBIncr6"},
 "Ik ga zelfstandig op zoek naar nieuwe werkwijzen, technieken of hulpmiddelen.": {"pillar": "CI", "direction": "pos", "block": 4, "code": "IBRad4"},
-"Ik onderneem acties om verandering in mijn organisatie te realiseren.": {"pillar": "CI", "direction": "pos", "block": 3, "code": "EISB1"},
+"Ik onderneem acties om verandering in mijn werk te realiseren.": {"pillar": "CI", "direction": "pos", "block": 3, "code": "EISB1"},
 "Ik bedenk nieuwe manieren van werken voor mijn organisatie.": {"pillar": "CI", "direction": "pos", "block": 3, "code": "EISB4"},
-"Ik spreek actief ideeën uit en draag voorstellen aan over hoe mijn organisatie zich kan vernieuwen om met toekomstige veranderingen om te gaan.": {"pillar": "TV", "direction": "pos", "block": 4, "code": "VOICE"},
+"Ik spreek actief ideeën uit en draag voorstellen aan over hoe mijn organisatie zich kan vernieuwen om met toekomstige veranderingen om te gaan.": {"pillar": "VV", "direction": "pos", "block": 4, "code": "VOICE"},
 }
 
 # ---------------------------
@@ -124,18 +128,18 @@ question_order = {
 "Ik ga actief op zoek naar elke kans die mij helpt om mijn functioneren te verbeteren (opleiding, groepsproject, uitwisseling met collega’s, enz.).": 7,
 "Ik neem zelf initiatief om te beslissen wat en hoe ik leer.": 23,
 
-"Ik volg mijn omgeving actief op om te zien wat mijn job of organisatie in de toekomst kan beïnvloeden.": 12,
-"Ik denk vooruit over mogelijke veranderingen in mijn job of organisatie als gevolg van ontwikkelingen in de omgeving (bv. markt, technologie).": 8,
+"Ik volg de wereld rondom mij actief op om te zien wat mijn job in de toekomst kan beïnvloeden.": 12,
+"Ik denk vooruit over mogelijke veranderingen in mijn organisatie als gevolg van ontwikkelingen in de wereld rondom mij (bv. markt, technologie).": 8,
 "Ik probeer werkwijzen en systemen te ontwikkelen die op lange termijn goed werken, ook als dat in het begin wat meer tijd kost.": 19,
 "Ik probeer de echte oorzaak te vinden van problemen die zich voordoen.": 29,
 
 "Ik anticipeer op mogelijke problemen door vooraf scenario’s uit te werken en beslissingsopties klaar te hebben voordat ze nodig zijn.": 9,
 "Ik bouw bewust netwerkrelaties op die mij en anderen helpen om toekomstige veranderingen beter op te vangen of te benutten.": 32,
-"Ik help anderen niet alleen in moeilijke situaties, maar help ook om toekomstige crisissituaties beter te structureren en voorkomen.": 10,
+"Ik zorg voor minder stress in de toekomst door structuren en processen te verbeteren en zo crisis situaties te voorkomen.": 10,
 
 "Ik bedenk nieuwe manieren om technologie beter te gebruiken in mijn werk.": 22,
 "Ik ga zelfstandig op zoek naar nieuwe werkwijzen, technieken of hulpmiddelen.": 31,
-"Ik onderneem acties om verandering in mijn organisatie te realiseren.": 11,
+"Ik onderneem acties om verandering in mijn werk te realiseren.": 11,
 "Ik bedenk nieuwe manieren van werken voor mijn organisatie.": 30,
 "Ik spreek actief ideeën uit en draag voorstellen aan over hoe mijn organisatie zich kan vernieuwen om met toekomstige veranderingen om te gaan.": 21
 }
@@ -184,7 +188,7 @@ def compute_scores(answers):
     # PILLARS
     pivot = df.groupby("pillar")["score"].mean().reset_index()
 
-    all_pillars = ["VA", "AZR", "LO", "TV", "CI"]
+    all_pillars = ["VA", "VZ", "LO", "VV", "CI"]
     pivot = (
         pivot.set_index("pillar")
         .reindex(all_pillars)
@@ -252,13 +256,13 @@ Je hebt een duidelijke voorkeur voor vertrouwde manieren van werken en dat is he
 
 Verandering kan echter ook kansen bieden en is vaak noodzakelijk om vooruit te kunnen. Een volgende stap kan zijn om vaker te onderzoeken wat een verandering jou of je werk kan opleveren. Kleine experimenten helpen hierbij: eerst voorzichtig proberen, daarna evalueren wat het effect is. Door je bezorgdheden iets sneller bespreekbaar te maken, vergroot je ook je invloed op hoe verandering vorm krijgt.
 
-### Volgende stappen voor jou:
+### Volgende stappen:
 - weerstand sneller benoemen en bespreekbaar maken
 - één kleine verandering bewust uitproberen
 - onderzoeken wat een verandering kan opleveren
 - minder afwachten, meer verkennen
 
-### Aan de slag!
+### Eerste kleine stap
 Kies één kleine verandering deze week en observeer bewust wat er gebeurt wanneer je die volgt in plaats van tegenhoudt.
 """,
 
@@ -267,13 +271,13 @@ Je accepteert verandering meestal correct en professioneel. Je werkt mee wanneer
 
 Je volgende groeistap ligt in het actiever vormgeven van verandering. Niet alleen uitvoeren wat gevraagd wordt, maar ook nadenken over hoe jij je eigen aanpak kan verbeteren of aanpassen. Door kleine initiatieven te nemen, verschuif je van “meewerken” naar “mee vormgeven”.
 
-### Volgende stappen voor jou:
+### Volgende stappen:
 - bewust reflecteren op je eigen aanpak
 - sneller nieuwe werkwijzen uitproberen
 - vragen stellen over waarom iets verandert
 - kleine verbeteringen zelf voorstellen
 
-### Aan de slag!
+### Eerste kleine stap
 Vraag bij één verandering actief door hoe je je werkwijze best kan aanpassen.
 """,
 
@@ -282,13 +286,13 @@ Je past je goed aan wanneer verandering zich voordoet. Je schakelt wanneer nodig
 
 De volgende stap is om niet alleen te reageren op verandering, maar ze ook vroeger te zien aankomen. Door signalen sneller op te pikken en je vooraf voor te bereiden, vergroot je je impact en je rust in nieuwe situaties.
 
-### Volgende stappen voor jou:
+### Volgende stappen:
 - sneller alternatieven bedenken
 - signalen van verandering vroeger oppikken
 - proactiever opleidingen of kennis zoeken
 - bewuster vooruitdenken bij nieuwe situaties
 
-### Aan de slag!
+### Eerste kleine stap
 Neem in één complexe situatie bewust een stap terug om meerdere opties te overwegen.
 """,
 
@@ -297,13 +301,13 @@ Je schakelt flexibel tussen situaties en weet goed wat nodig is om resultaat te 
 
 Je groeikans ligt in het nog sterker vooruitdenken in plaats van enkel goed reageren. Door patronen te herkennen en eerder te anticiperen op wat kan komen, kan je meer richting geven in plaats van enkel mee te bewegen.
 
-### Volgende stappen voor jou:
+### Volgende stappen:
 - vaker vooruitdenken in scenario’s
 - structurele oorzaken van problemen analyseren
 - actief nieuwe vaardigheden ontwikkelen vóór ze nodig zijn
 - kansen zien in verandering, niet alleen oplossingen
 
-### Aan de slag!
+### Eerste kleine stap
 Kies één ontwikkeling in je werkveld en bekijk wat deze binnen 6 maanden zou kunnen veranderen aan jouw job of taken.
 """,
 
@@ -312,13 +316,13 @@ Je denkt vooruit en bereidt je bewust voor op toekomstige veranderingen. Je ontw
 
 De volgende stap ligt in nog meer experimenteren zonder directe noodzaak: niet alleen voorbereiden op wat waarschijnlijk komt, maar ook leren en ontwikkelen voor wat nog onbekend is. Zo versterk je je adaptiviteit verder.
 
-### Volgende stappen voor jou:
+### Volgende stappen:
 - experimenteren zonder onmiddellijke aanleiding
 - bewust leren buiten de huidige context
 - nieuwe mogelijkheden verkennen zonder zeker doel
 - anderen inspireren en meenemen in verandering
 
-### Aan de slag!
+### Eerste kleine stap
 Volg één opleiding waarvan je op voorhand nog niet weet of ze direct bruikbaar is voor je huidige taken en evalueer wat je ervan leert.
 """,
 
@@ -333,7 +337,7 @@ Jouw verdere ontwikkeling ligt hier niet zozeer in “meer”, maar in verdiepin
 - ruimte creëren voor experiment binnen het team
 - verandering op organisatieniveau helpen sturen
 
-### Aan de slag!
+### Eerste kleine stap
 Kies één collega of team en help hen bewust om één verandering beter te begrijpen, aan te pakken of te versnellen.
 """
     }
@@ -342,10 +346,10 @@ Kies één collega of team en help hen bewust om één verandering beter te begr
 
 pillar_labels = {
     "VA": "Veranderattitude",
-    "AZR": "Adaptieve Zelf-Regulatie",
-    "LO": "Leer & Ontwikkelingsoriëntatie",
-    "TV": "Toekomstgerichte Voorbereiding",
-    "CI": "Creativiteit & Innovatie"
+    "VZ": "Veerkracht<br>& Zelfregulatie",
+    "LO": "Leermotivatie<br>& Ontwikkeling",
+    "VV": "Vooruitzien<br>& Voorbereiden",
+    "CI": "Creativiteit<br>& Innovatie"
 }
 
 def radar_plot(pivot):
@@ -370,268 +374,414 @@ def radar_plot(pivot):
 
     st.plotly_chart(fig, use_container_width=True)
 
-pillar_explanations = {
-    "VA": """
-### Veranderattitude
+pillar_data = {
+    "VA": {
+        "title": "Veranderattitude",
+        "description": (
+            "Deze pijler beschrijft hoe jij emotioneel, cognitief en gedragsmatig reageert op verandering in je werkomgeving. "
+            "Het gaat niet alleen om of je verandering accepteert, maar ook in welke mate je deze actief ondersteunt, beïnvloedt of net probeert te vermijden. "
+            "Dit varieert van weerstand en terughoudendheid tot actieve betrokkenheid en het zelf mee vormgeven van verandering."
+        ),
+         "score_meaning": {
+            "low": (
+                "Je scoort eerder laag op Veranderattitude. Dit betekent dat je verandering vaak als lastig, onzeker of bedreigend ervaart "
+                "en dat je de neiging hebt om vast te houden aan vertrouwde werkwijzen. In verandertrajecten neem je meestal een afwachtende of terughoudende houding aan "
+                "en je vermijdt of vertraagt verandering eerder dan dat je ze actief ondersteunt."
+            ),
+            "mid": (
+                "Je scoort gemiddeld op Veranderattitude. Dit betekent dat je doorgaans een neutrale tot redelijk open houding hebt tegenover verandering. "
+                "Je werkt mee wanneer verandering gevraagd of opgelegd wordt, maar je neemt zelf zelden het initiatief om verandering actief te ondersteunen of te versnellen."
+            ),
+            "good": (
+                "Je scoort eerder hoog op Veranderattitude. Dit betekent dat je meestal open en constructief staat tegenover verandering en deze actief ondersteunt wanneer ze zich voordoet. "
+                "Je denkt mee over hoe verandering kan worden uitgevoerd en draagt regelmatig bij aan een vlotte implementatie."
+            ),
+            "high": (
+                "Je scoort zeer hoog op Veranderattitude. Dit betekent dat je verandering niet alleen accepteert, maar vaak ook actief initieert en mee vormgeeft. "
+                "Je neemt regelmatig een trekkersrol op in veranderprocessen en probeert verandering te stimuleren, versnellen of verbeteren."
+            )
+        }
+    },
+ "VZ": {
+        "title": "Veerkracht & Zelfregulatie",
+        "description": (
+            "Deze pijler beschrijft hoe goed je functioneert onder druk, in veranderende omstandigheden en bij tegenslagen. "
+            "Het gaat zowel over emotionele veerkracht (hoe je stress en druk verwerkt) als over gedragsmatige flexibiliteit (hoe snel je je aanpast in concrete situaties)."
+        ),
+        "score_meaning": {
+            "low": (
+                "Je scoort eerder laag op Veerkracht & Zelfregulatie. Dit betekent dat je verandering, druk of onverwachte situaties vaak als belastend ervaart "
+                "en dat het je tijd kost om je opnieuw aan te passen. Stress kan een duidelijke impact hebben op je functioneren."
+            ),
+            "mid": (
+                "Je scoort gemiddeld op Veerkracht & Zelfregulatie. Dit betekent dat je je in de meeste situaties kan aanpassen, "
+                "maar dat je soms bewust tijd, structuur of ondersteuning nodig hebt om goed te blijven functioneren onder druk."
+            ),
+            "good": (
+                "Je scoort eerder hoog op Veerkracht & Zelfregulatie. Dit betekent dat je doorgaans stabiel blijft functioneren onder druk "
+                "en je je vlot kan aanpassen aan veranderende omstandigheden en verwachtingen."
+            ),
+            "high": (
+                "Je scoort zeer hoog op Veerkracht & Zelfregulatie. Dit betekent dat je erg goed kan omgaan met druk en verandering, "
+                "en dat je snel en flexibel schakelt zonder dat dit je functioneren of emotionele stabiliteit negatief beïnvloedt."
+            )
+        }
+    },
 
-**Wat meet dit?**  
-Deze pijler toont hoe jij omgaat met verandering in je werk: van eerder afwachtend of terughoudend tot actief ondersteunen of mee sturen van verandering.
+    "LO": {
+        "title": "Leermotivatie & Ontwikkeling",
+        "description": (
+            "Deze pijler beschrijft in welke mate je actief investeert in leren en persoonlijke ontwikkeling. "
+            "Dit omvat zowel formele leeractiviteiten zoals opleidingen als informele ontwikkeling zoals feedback gebruiken, zelfstudie en leren in de praktijk."
+        ),
+        "score_meaning": {
+            "low": (
+                "Je scoort eerder laag op Leermotivatie & Ontwikkeling. Dit betekent dat je vooral leert wanneer het noodzakelijk is voor je werk "
+                "en dat leren eerder een reactieve dan een proactieve activiteit is."
+            ),
+            "mid": (
+                "Je scoort gemiddeld op Leermotivatie & Ontwikkeling. Dit betekent dat je regelmatig gebruikmaakt van leerkansen wanneer ze zich voordoen, "
+                "maar dat je ontwikkeling niet altijd actief of systematisch aanstuurt."
+            ),
+            "good": (
+                "Je scoort eerder hoog op Leermotivatie & Ontwikkeling. Dit betekent dat je actief bezig bent met leren en je ontwikkeling "
+                "en dat je regelmatig bewust zoekt naar mogelijkheden om je vaardigheden te verbeteren."
+            ),
+            "high": (
+                "Je scoort zeer hoog op Leermotivatie & Ontwikkeling. Dit betekent dat je sterk intrinsiek gemotiveerd bent om te leren "
+                "en voortdurend actief op zoek gaat naar nieuwe kansen om jezelf professioneel en persoonlijk te ontwikkelen."
+            )
+        }
+    },
 
-**Wat betekent je score?**  
-**1–2:** Je vermijdt of ondergaat verandering eerder en houdt vast aan vertrouwde manieren.  
-**3–4:** Je werkt mee wanneer het nodig is, maar neemt weinig initiatief.  
-**5:** Je bent meestal open en redelijk actief in het ondersteunen van verandering.  
-**6–7:** Je bent sterk betrokken en neemt vaak zelf initiatief.
-""",
+    "VV": {
+        "title": "Vooruitzien & Voorbereiden",
+        "description": (
+            "Deze pijler beschrijft hoe sterk je gericht bent op de toekomst, hoe goed je trends en ontwikkelingen opvolgt "
+            "en in welke mate je je systematisch voorbereidt op mogelijke veranderingen en uitdagingen."
+        ),
+        "score_meaning": {
+            "low": (
+                "Je scoort eerder laag op Vooruitzien & Voorbereiden. Dit betekent dat je vooral focust op de huidige situatie "
+                "en meestal reageert op problemen wanneer ze zich voordoen, eerder dan ze vooraf te anticiperen."
+            ),
+            "mid": (
+                "Je scoort gemiddeld op Vooruitzien & Voorbereiden. Dit betekent dat je soms vooruitdenkt en rekening houdt met mogelijke veranderingen, "
+                "maar dat dit niet altijd structureel of systematisch gebeurt."
+            ),
+            "good": (
+                "Je scoort eerder hoog op Vooruitzien & Voorbereiden. Dit betekent dat je regelmatig vooruitdenkt en je bewust voorbereidt op toekomstige ontwikkelingen en mogelijke risico’s."
+            ),
+            "high": (
+                "Je scoort zeer hoog op Vooruitzien & Voorbereiden. Dit betekent dat je sterk proactief werkt met scenario’s, trends en analyses "
+                "en dat je structureel anticipeert op toekomstige veranderingen en uitdagingen."
+            )
+        }
+    },
 
-    "AZR": """
-### Adaptieve Zelf-Regulatie
-
-**Wat meet dit?**  
-Deze pijler gaat over hoe goed je je kan aanpassen aan nieuwe situaties, druk en tegenslagen.
-
-**Wat betekent je score?**  
-**1–2:** Verandering of druk voelt vaak zwaar.  
-**3–4:** Je kan je aanpassen, maar hebt soms tijd nodig.  
-**5:** Je past je meestal vlot aan.  
-**6–7:** Je schakelt snel en blijft rustig onder druk.
-""",
-
-    "LO": """
-### Leer- & Ontwikkelingsoriëntatie
-
-**Wat meet dit?**  
-Deze pijler toont hoe actief je bent in leren en jezelf ontwikkelen.
-
-**Wat betekent je score?**  
-**1–2:** Je leert vooral wanneer het echt nodig is.  
-**3–4:** Je leert regelmatig wanneer kansen zich voordoen.  
-**5:** Je bent actief bezig met leren.  
-**6–7:** Je zoekt continu leer- en groeikansen.
-""",
-
-    "TV": """
-### Toekomstgerichte Voorbereiding
-
-**Wat meet dit?**  
-Deze pijler toont hoe goed je vooruit denkt en je voorbereidt op toekomstige veranderingen.
-
-**Wat betekent je score?**  
-**1–2:** Je reageert vooral op het moment zelf.  
-**3–4:** Je denkt soms vooruit.  
-**5:** Je bereidt je regelmatig voor.  
-**6–7:** Je werkt actief met scenario’s en anticipeert sterk.
-""",
-
-    "CI": """
-### Creativiteit & Innovatie
-
-**Wat meet dit?**  
-Deze pijler toont in welke mate je zelf initiatief neemt om dingen anders of beter te doen.
-
-**Wat betekent je score?**  
-**1–2:** Je volgt vooral bestaande manieren.  
-**3–4:** Je denkt soms mee over verbeteringen.  
-**5:** Je neemt regelmatig initiatief.  
-**6–7:** Je bent sterk proactief en zet ideeën om in actie.
-"""
+    "CI": {
+        "title": "Creativiteit & Innovatie",
+        "description": (
+            "Deze pijler beschrijft in welke mate je actief nieuwe ideeën, werkwijzen en oplossingen ontwikkelt en implementeert. "
+            "Het gaat zowel om creatief denken als om het daadwerkelijk realiseren van verbeteringen en vernieuwing in je werkcontext."
+        ),
+        "score_meaning": {
+            "low": (
+                "Je scoort eerder laag op Creativiteit & Innovatie. Dit betekent dat je vooral werkt volgens bestaande methodes "
+                "en weinig initiatief neemt om dingen te verbeteren of te vernieuwen."
+            ),
+            "mid": (
+                "Je scoort gemiddeld op Creativiteit & Innovatie. Dit betekent dat je soms meedenkt over verbeteringen "
+                "en af en toe ideeën aanbrengt, maar dat je niet structureel vernieuwend bezig bent."
+            ),
+            "good": (
+                "Je scoort eerder hoog op Creativiteit & Innovatie. Dit betekent dat je regelmatig initiatief neemt om processen, werkwijzen of ideeën te verbeteren "
+                "en dat je actief bijdraagt aan vernieuwing in je werkomgeving."
+            ),
+            "high": (
+                "Je scoort zeer hoog op Creativiteit & Innovatie. Dit betekent dat je sterk innovatief ingesteld bent en actief nieuwe ideeën ontwikkelt én realiseert "
+                "om je werk en organisatie te verbeteren of te vernieuwen."
+            )
+        }
+    }
 }
+
+def get_score_explanation(score, meanings):
+    if score <= 2:
+        return meanings["low"]
+    elif score <= 4:
+        return meanings["mid"]
+    elif score == 5:
+        return meanings["good"]
+    else:
+        return meanings["high"]
+
+st.markdown("""
+<style>
+div[data-testid="stRadio"] label {
+    font-size: 0px; /* verbergt default label maar breekt layout niet */
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+html, body, [data-testid="stAppViewContainer"] {
+    scroll-behavior: smooth;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # ---------------------------
 # STEP 1
 # ---------------------------
 if st.session_state.step == 1:
+    st.subheader ("Vul deze korte vragenlijst (3') in en kom te weten hoe matuur jouw adaptiviteit is")
 
-    st.subheader("Stap 1: Jouw gegevens")
+    st.subheader("Stap 1: Je gegevens")
 
     naam = st.text_input("Naam")
     email = st.text_input("Email")
+    functie = st.text_input("Functie")
     organisatie = st.text_input("Organisatie")
 
     if st.button("Start vragenlijst"):
         st.session_state.naam = naam
         st.session_state.email = email
+        st.session_state.functie = functie
         st.session_state.organisatie = organisatie
 
         st.session_state.step = 2
         st.rerun()
+
 
 # ---------------------------
 # STEP 2
 # ---------------------------
 elif st.session_state.step == 2:
 
-    st.subheader("Stap 2: Vragenlijst")
+    st.subheader("Stap 2: Adaptiviteitsscan")
 
     answers = st.session_state.answers
 
-    scale_values = list(range(1, 8))
-
     # ---------------------------
-    # SCALE HEADER (SUBTIEL + ALTIJD ALIGNED)
+    # SCALE MAP
     # ---------------------------
-    def scale_header():
-        cols = st.columns([5, 4])
-        with cols[0]:
-            st.empty()
-        with cols[1]:
-            st.markdown(
-                "1 — Nooit  |  2 - Zeer zelden  |  3 - Zelden  |  4 - Soms  |  5 - Regelmatig  |  6 - Vaak  |  7 — Altijd"
-            )
-
-    scale_header()
-    st.markdown("---")
+    scale_map = {
+        "Nooit": 1,
+        "Zeer zelden": 2,
+        "Zelden": 3,
+        "Soms": 4,
+        "Regelmatig": 5,
+        "Vaak": 6,
+        "Altijd": 7
+    }
 
     # ---------------------------
     # QUESTIONS
     # ---------------------------
-    for i, q in enumerate(questions):
+    for q in questions:
+        with st.container():
+            col_q, col_a = st.columns([5, 5])
 
-        cols = st.columns([5, 4])
+            with col_q:
+                st.markdown(f"**{q}**")
 
-        with cols[0]:
-            st.write(q)
+            with col_a:
+                selected = st.radio(
+                    label="",
+                    options=list(scale_map.keys()),
+                    horizontal=True,
+                    key=q,
+                 #   index=None,
+                    label_visibility="collapsed"
+                )
 
-        with cols[1]:
+                # 🔴 BELANGRIJK: expliciet opslaan
+                if selected:
+                    answers[q] = scale_map[selected]
 
-            selected = st.radio(
-                label="",
-                options=scale_values,
-                horizontal=True,
-                key=q
-            )
-
-            answers[q] = selected
-
-        st.markdown("---")
-
-        # ---------------------------
-        # SCALE REMINDERS (na vraag 10 en 20)
-        # ---------------------------
-        if i == 5 or i == 10 or i == 15 or i == 20 or i == 25:
-            scale_header()
-            st.markdown("---")
+        st.markdown(
+            "<hr style='margin:8px 0; opacity:0.6;'>",
+            unsafe_allow_html=True
+        )
 
     # ---------------------------
     # COMPLETENESS CHECK
     # ---------------------------
-    if len(answers) < len(questions):
+    missing = [q for q in questions if q not in answers]
+    if missing:
         st.warning("Vul alle vragen in.")
     else:
         st.success("Alle vragen ingevuld.")
 
-        if st.button("Versturen"):
+    # ---------------------------
+    # SUBMIT
+    # ---------------------------
+    if st.button("Versturen"):
 
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            rows_to_add = []
+        rows_to_add = []
 
-            for q, score in answers.items():
-                meta = question_map[q]
+        for q, score in answers.items():
+            meta = question_map[q]
 
-                raw_score = score
-                reversed_flag = meta["direction"] == "neg"
+            raw_score = score
+            final_score = 8 - score if meta["direction"] == "neg" else score
 
-                final_score = 8 - score if reversed_flag else score
-                rows_to_add.append([
-                    timestamp,
-                    st.session_state.naam,
-                    st.session_state.email,
-                    st.session_state.organisatie,
-                    question_map[q]["code"],
-                    question_map[q]["pillar"],
-                    question_map[q]["direction"],
-                    raw_score,
-                    final_score,
-                    q             
-                ])
+            rows_to_add.append([
+                timestamp,
+                st.session_state.naam,
+                st.session_state.email,
+                st.session_state.functie,
+                st.session_state.organisatie,
+                meta["code"],
+                meta["pillar"],
+                meta["direction"],
+                raw_score,
+                final_score,
+                q
+            ])
 
-            sheet.append_rows(rows_to_add)
+        sheet.append_rows(rows_to_add)
 
-            st.session_state.step = 3
-            st.rerun()
+        st.session_state.step = 3
+        st.session_state.scroll_top = True
+        st.rerun()
+
+# ---------------------------
+# STEP 3 - DEBUG
+# ---------------------------
+    # ---------------------------
+    # DEBUG: BLOCK SCORE BREAKDOWN
+    # ---------------------------
+  #  st.subheader("🔎 Debug: Block scoring details")
+
+ #   debug_rows = []
+
+  #  for q, score in st.session_state.answers.items():
+  #      meta = question_map[q]
+
+   #     raw_score = score
+   #     final_score = 8 - score if meta["direction"] == "neg" else score
+
+ #       debug_rows.append({
+   #         "Vraag": q,
+    #        "Block": meta["block"],
+     #       "Pillar": meta["pillar"],
+      #      "Direction": meta["direction"],
+       #     "Raw score": raw_score,
+       #     "Final score (na reverse)": final_score,
+       #     "Code": meta["code"]
+      #  })
+
+  #  debug_df = pd.DataFrame(debug_rows)
+
+  #  with st.expander("Bekijk alle individuele item-scores per block"):
+  #      st.dataframe(debug_df, use_container_width=True)
+
+    # ---------------------------
+    # BLOCK SAMENVATTING
+    # ---------------------------
+ #   st.markdown("### 📊 Block gemiddelden")
+
+ #   st.dataframe(
+  #      block_scores.sort_values("block"),
+  #      use_container_width=True
+  #  )
 
 # ---------------------------
 # STEP 3
 # ---------------------------
 elif st.session_state.step == 3:
 
-    st.success("Bedankt voor je deelname 🎉")
+    st.markdown('<div id="top"></div>', unsafe_allow_html=True)
 
-    st.subheader("Jouw profiel")
+    if st.session_state.get("scroll_top"):
+       st.session_state.scroll_top = False
+    components.html(
+        """
+        <script>
+            setTimeout(() => {
+                const el = window.parent.document.getElementById("top");
+                if (el) {
+                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+            }, 200);
+        </script>
+        """,
+        height=0
+    )
+
+    st.success("Bedankt voor je deelname 🎉")
+    st.subheader("Je profiel")
 
     # ---------------------------
-    # SCORE BEREKENEN
+    # SCORES
     # ---------------------------
     pivot, block_scores = compute_scores(st.session_state.answers)
     level = compute_maturity_level(block_scores)
 
     # ---------------------------
-    # DEBUG: BLOCK SCORE BREAKDOWN
-    # ---------------------------
-    st.subheader("🔎 Debug: Block scoring details")
-
-    debug_rows = []
-
-    for q, score in st.session_state.answers.items():
-        meta = question_map[q]
-
-        raw_score = score
-        final_score = 8 - score if meta["direction"] == "neg" else score
-
-        debug_rows.append({
-            "Vraag": q,
-            "Block": meta["block"],
-            "Pillar": meta["pillar"],
-            "Direction": meta["direction"],
-            "Raw score": raw_score,
-            "Final score (na reverse)": final_score,
-            "Code": meta["code"]
-        })
-
-    debug_df = pd.DataFrame(debug_rows)
-
-    with st.expander("Bekijk alle individuele item-scores per block"):
-        st.dataframe(debug_df, use_container_width=True)
-
-    # ---------------------------
-    # BLOCK SAMENVATTING
-    # ---------------------------
-    st.markdown("### 📊 Block gemiddelden")
-
-    st.dataframe(
-        block_scores.sort_values("block"),
-        use_container_width=True
-    )
-    # ---------------------------
     # LAYOUT
     # ---------------------------
-    col1, col2 = st.columns([1.5, 1.5])
+    col1, col2 = st.columns([2, 2], gap="large")
 
+    # ---------------------------
+    # LEFT: STICKY RADAR
+    # ---------------------------
     with col1:
         radar_plot(pivot)
 
+    # ---------------------------
+    # RIGHT: SCROLLING TEXT
+    # ---------------------------
     with col2:
-        st.markdown("## Kernpijlers")
+        with st.container(height=700):
 
-        for _, row in pivot.iterrows():
-            pillar = row["pillar"]
-            score = round(row["score"], 1)
+            st.markdown("## Kernpijlers")
 
-            st.write(pillar_explanations[pillar])
-            st.markdown(f"### Score: {score}/7")
-            st.markdown("---")
+            for _, row in pivot.iterrows():
+                pillar = row["pillar"]
+                score = round(row["score"], 1)
+    
+                title = pillar_data[pillar]["title"]
+                description = pillar_data[pillar]["description"]
+                meanings = pillar_data[pillar]["score_meaning"]
+
+                explanation = get_score_explanation(round(score), meanings)
+
+                st.markdown(f"### {title} — {score}/7")
+
+                st.markdown(f"""
+    {description}
+
+    **Wat betekent mijn score?**  
+    {explanation}
+    """)
+
+                st.markdown(
+                    "<hr style='margin:8px 0; opacity:0.3;'>",
+                    unsafe_allow_html=True
+                )
+
+            # minder agressieve spacing dan st.divider()
+            st.markdown("<hr style='margin:6px 0; opacity:0.6'>", unsafe_allow_html=True)
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
     # ---------------------------
     # MATURITEIT - TIJDELIJK OM NIVEAU TE TESTEN
     # ---------------------------
-    st.write(f"Maturiteitsniveau: {level} / 5")
+  #  st.write(f"Maturiteitsniveau: {level} / 5")
 
     # ---------------------------
     # FEEDBACK
     # ---------------------------
-    st.subheader("Persoonlijke Feedback")
+    st.subheader("Je adaptiviteit")
     st.markdown(feedback(level))
+    st.markdown("---")
 
     # ---------------------------
     # RESET
