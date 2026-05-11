@@ -367,12 +367,14 @@ def radar_plot(pivot):
 
     fig.update_traces(fill="toself")
 
-
     fig.update_layout(
         height=500,
         autosize=True,
         margin=dict(l=80, r=80, t=40, b=40),
         polar=dict(
+            radialaxis=dict(
+                range=[1, 7]
+            ),
             angularaxis=dict(
                 automargin=True
             )
@@ -600,7 +602,7 @@ elif st.session_state.step == 2:
                     options=list(scale_map.keys()),
                     horizontal=True,
                     key=q,
-                    index=None,
+            #        index=None,
                     label_visibility="collapsed"
                 )
 
