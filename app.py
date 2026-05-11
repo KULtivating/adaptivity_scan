@@ -597,7 +597,7 @@ elif st.session_state.step == 2:
                     options=list(scale_map.keys()),
                     horizontal=True,
                     key=q,
-            #        index=None,
+                    index=None,
                     label_visibility="collapsed"
                 )
 
