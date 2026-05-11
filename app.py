@@ -367,9 +367,16 @@ def radar_plot(pivot):
 
     fig.update_traces(fill="toself")
 
+
     fig.update_layout(
         height=500,
-        margin=dict(l=20, r=20, t=20, b=20)
+        autosize=True,
+        margin=dict(l=80, r=80, t=40, b=40),
+        polar=dict(
+            angularaxis=dict(
+                automargin=True
+            )
+        )
     )
 
     st.plotly_chart(fig, use_container_width=True)
