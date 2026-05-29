@@ -899,7 +899,6 @@ elif st.session_state.step == 3:
         # COMMERCIËLE + TWEEDE SCAN SECTIE
         # ---------------------------
         html += """
-        <hr>
         <h3>Verder verdiepen in adaptiviteit?</h3>
     
         <p>
