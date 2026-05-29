@@ -862,13 +862,28 @@ elif st.session_state.step == 3:
     
             html += f"""
             <div class="pillar">
-                <h4>{title}</h4>
-                <p><b>Score:</b> {score} / 7</p>
-                <p>{description}</p>
-                <p><b>Interpretatie:</b></p>
-                <p>{interp}</p>
+            
+                <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                    <h3 style="margin:0; font-size:18px;">{title}</h3>
+                    <div style="font-size:13px; font-weight:bold; color:#2E86C1;">
+                        {score} / 7
+                    </div>
+                </div>
+            
+                <p style="margin-top:8px; font-size:14px;">
+                    {description}
+                </p>
+            
+                <p style="margin-top:10px; font-size:13px;">
+                    <b>Interpretatie</b>
+                </p>
+            
+                <p style="font-size:14px;">
+                    {interp}
+                </p>
+            
             </div>
-            """      
+            """     
         # ---------------------------
         # ADAPTIVITEIT (JOUW BESTAANDE FEEDBACK)
         # ---------------------------
