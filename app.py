@@ -843,7 +843,7 @@ elif st.session_state.step == 3:
         {feedback(level)
             .replace("### Volgende stappen:", "<b>Volgende stappen:</b>")
             .replace("### Eerste kleine stap", "<b>Eerste kleine stap</b>")
-            .replace("- ", "• ")}
+            .replace("- ", "• ")
         }
         </div>
         
