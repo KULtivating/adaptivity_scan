@@ -777,9 +777,26 @@ elif st.session_state.step == 3:
             </style>
         </head>
         <body>
-    
+
+        <table style="width:100%; margin-bottom:20px;">
+        <tr>
+        <td>
+            <img src="https://YOUR_LOGO_URL/logo_coliberate.png" height="50">
+        </td>
+        <td style="text-align:right;">
+            <img src="https://YOUR_LOGO_URL/logo_kultivating.png" height="50">
+        </td>
+        </tr>
+        </table>
+
         <h2>Jouw Adaptiviteitsscan resultaat</h2>
-    
+        <p>
+        Bedankt voor je deelname aan de Adaptiviteitsscan.
+        In deze mail vind je jouw persoonlijke resultaat, inclusief de verschillende pijlers van je adaptief gedrag,
+        en enkele concrete groeistappen.
+        </p>
+        
+        <hr>
         <h3>Overzicht kernpijlers</h3>
         """
     
@@ -813,9 +830,7 @@ elif st.session_state.step == 3:
                 <p><b>Interpretatie:</b></p>
                 <p>{interp}</p>
             </div>
-            """
-        feedback_html = markdown.markdown(feedback(level))
-        
+            """      
         # ---------------------------
         # ADAPTIVITEIT (JOUW BESTAANDE FEEDBACK)
         # ---------------------------
