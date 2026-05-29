@@ -847,12 +847,7 @@ elif st.session_state.step == 3:
         # ---------------------------
         html += f"""
         <hr>
-        
-        <h3>Je adaptiviteit</h3>
-        
-        html += f"""
-        <hr>
-        
+             
         <h3>Je adaptiviteit</h3>
         
         <div>
