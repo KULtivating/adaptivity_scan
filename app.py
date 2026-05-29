@@ -8,23 +8,50 @@ from google.oauth2.service_account import Credentials
 import smtplib
 from email.mime.text import MIMEText
 import markdown
+from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
 
 # ---------------------------
 # EMAIL FUNCTIE (MUST BE GLOBAL)
 # ---------------------------
-def send_email(to_email, subject, body):
+def send_email(to_email, subject, html_content):
     sender_email = st.secrets["gmail_user"]
     sender_password = st.secrets["gmail_password"]
 
-    msg = MIMEText(body, "html")
+    msg = MIMEMultipart("related")
     msg["Subject"] = subject
     msg["From"] = sender_email
     msg["To"] = to_email
 
-    with smtplib.SMTP("smtp.gmail.com", 587) as server:
-        server.starttls()
-        server.login(sender_email, sender_password)
-        server.send_message(msg)
+    # HTML container
+    msg_alternative = MIMEMultipart("alternative")
+    msg.attach(msg_alternative)
+    msg_alternative.attach(MIMEText(html_content, "html"))
+
+    # ---------------------------
+    # LOGO 1
+    # ---------------------------
+    with open("assets/logo Coliberate.png", "rb") as img:
+        mime_img = MIMEImage(img.read())
+        mime_img.add_header("Content-ID", "<logo_coliberate>")
+        mime_img.add_header("Content-Disposition", "inline", filename="logo_coliberate.png")
+        msg.attach(mime_img)
+
+    # ---------------------------
+    # LOGO 2
+    # ---------------------------
+    with open("assets/logo KULtivating.png", "rb") as img:
+        mime_img = MIMEImage(img.read())
+        mime_img.add_header("Content-ID", "<logo_kultivating>")
+        mime_img.add_header("Content-Disposition", "inline", filename="logo_kultivating.png")
+        msg.attach(mime_img)
+
+    # SEND
+    server = smtplib.SMTP("smtp.gmail.com", 587)
+    server.starttls()
+    server.login(sender_email, sender_password)
+    server.send_message(msg)
+    server.quit()
         
 # ---------------------------
 # APP CONFIG
@@ -846,15 +873,17 @@ elif st.session_state.step == 3:
         # ADAPTIVITEIT (JOUW BESTAANDE FEEDBACK)
         # ---------------------------
         html += f"""
-        <hr>
-             
-        <h3>Je adaptiviteit</h3>
+        <div style="margin: 40px 0 30px 0;">
+            <hr style="margin-bottom:20px;">
         
-        <div>
-        {format_feedback(feedback(level))}
+            <h3>Je adaptiviteit</h3>
+        
+            <div style="margin-top:10px;">
+                {format_feedback(feedback(level))}
+            </div>
+        
+            <hr style="margin-top:20px;">
         </div>
-        
-        <hr>
         """
     
         # ---------------------------
