@@ -721,6 +721,7 @@ elif st.session_state.step == 3:
 
     st.markdown('<div id="top"></div>', unsafe_allow_html=True)
 
+    # scroll to top
     components.html(
         """
         <script>
@@ -739,23 +740,41 @@ elif st.session_state.step == 3:
     st.subheader("Je profiel")
 
     # ---------------------------
-    # SCORES (ALLES HIER BINNEN!)
+    # SCORES (ALTIJD BINNEN STEP 3)
     # ---------------------------
     pivot, block_scores = compute_scores(st.session_state.answers)
     level = compute_maturity_level(block_scores)
 
     # ---------------------------
-    # EMAIL BUILD + SEND (SAFE GUARD)
+    # HTML REPORT BUILDER (MAIL + EVENTUEEL PDF)
     # ---------------------------
-    if "email_sent" not in st.session_state:
+    def build_report_html(level, pivot):
+        html = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    color: #222;
+                    line-height: 1.5;
+                }}
+                h2 {{
+                    color: #2E86C1;
+                }}
+                .box {{
+                    padding: 10px;
+                    margin-bottom: 10px;
+                    border-left: 4px solid #2E86C1;
+                    background: #f5f9fc;
+                }}
+            </style>
+        </head>
+        <body>
 
-        result_html = f"""
         <h2>Jouw Adaptiviteitsscan resultaat</h2>
-
         <p><strong>Maturiteitsniveau:</strong> {level} / 5</p>
 
         <h3>Kernpijlers</h3>
-        <ul>
         """
 
         for _, row in pivot.iterrows():
@@ -763,14 +782,29 @@ elif st.session_state.step == 3:
             score = round(row["score"], 1)
             title = pillar_data[pillar]["title"]
 
-            result_html += f"<li><strong>{title}</strong>: {score}/7</li>"
+            html += f"""
+            <div class="box">
+                <strong>{title}</strong><br>
+                Score: {score}/7
+            </div>
+            """
 
-        result_html += "</ul>"
-
-        result_html += f"""
+        html += f"""
         <h3>Advies</h3>
         <p>{feedback(level)}</p>
+
+        </body>
+        </html>
         """
+
+        return html
+
+    result_html = build_report_html(level, pivot)
+
+    # ---------------------------
+    # EMAIL (SAFE: 1X ONLY)
+    # ---------------------------
+    if "email_sent" not in st.session_state:
 
         try:
             send_email(
@@ -782,7 +816,6 @@ elif st.session_state.step == 3:
         except Exception as e:
             st.error(f"E-mail kon niet verzonden worden: {e}")
 
-        # BELANGRIJK: voorkomt dubbele mails bij reruns
         st.session_state.email_sent = True
 
     # ---------------------------
@@ -817,13 +850,11 @@ elif st.session_state.step == 3:
 {explanation}
 """)
 
-                st.markdown(
-                    "<hr style='margin:8px 0; opacity:0.3;'>",
-                    unsafe_allow_html=True
-                )
+                st.markdown("<hr style='margin:8px 0; opacity:0.3;'>",
+                            unsafe_allow_html=True)
 
     # ---------------------------
-    # FEEDBACK (ONDERAAN)
+    # EXTRA FEEDBACK ONDERAAN
     # ---------------------------
     st.subheader("Je adaptiviteit")
     st.markdown(feedback(level))
