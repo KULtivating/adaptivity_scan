@@ -704,8 +704,6 @@ elif st.session_state.step == 3:
 
     st.markdown('<div id="top"></div>', unsafe_allow_html=True)
 
-    if st.session_state.get("scroll_top"):
-       st.session_state.scroll_top = False
     components.html(
         """
         <script>
@@ -724,75 +722,60 @@ elif st.session_state.step == 3:
     st.subheader("Je profiel")
 
     # ---------------------------
-    # SCORES
+    # SCORES (ALLES HIER BINNEN!)
     # ---------------------------
     pivot, block_scores = compute_scores(st.session_state.answers)
     level = compute_maturity_level(block_scores)
 
-# ---------------------------
-# EMAIL FUNCTIE
-#----------------------------
-def send_email(to_email, subject, body):
-    sender_email = st.secrets["gmail_user"]
-    sender_password = st.secrets["gmail_password"]
+    # ---------------------------
+    # EMAIL BUILD + SEND (SAFE GUARD)
+    # ---------------------------
+    if "email_sent" not in st.session_state:
 
-    msg = MIMEText(body, "html")
-    msg["Subject"] = subject
-    msg["From"] = sender_email
-    msg["To"] = to_email
+        result_html = f"""
+        <h2>Jouw Adaptiviteitsscan resultaat</h2>
 
-    with smtplib.SMTP("smtp.gmail.com", 587) as server:
-        server.starttls()
-        server.login(sender_email, sender_password)
-        server.send_message(msg)
-result_html = f"""
-<h2>Jouw Adaptiviteitsscan resultaat</h2>
+        <p><strong>Maturiteitsniveau:</strong> {level} / 5</p>
 
-<p><strong>Maturiteitsniveau:</strong> {level} / 5</p>
+        <h3>Kernpijlers</h3>
+        <ul>
+        """
 
-<h3>Kernpijlers</h3>
-<ul>
-"""
+        for _, row in pivot.iterrows():
+            pillar = row["pillar"]
+            score = round(row["score"], 1)
+            title = pillar_data[pillar]["title"]
 
-for _, row in pivot.iterrows():
-    pillar = row["pillar"]
-    score = round(row["score"], 1)
-    title = pillar_data[pillar]["title"]
+            result_html += f"<li><strong>{title}</strong>: {score}/7</li>"
 
-    result_html += f"<li><strong>{title}</strong>: {score}/7</li>"
+        result_html += "</ul>"
 
-result_html += "</ul>"
+        result_html += f"""
+        <h3>Advies</h3>
+        <p>{feedback(level)}</p>
+        """
 
-result_html += f"""
-<h3>Advies</h3>
-<p>{feedback(level)}</p>
-"""
+        try:
+            send_email(
+                st.session_state.email,
+                "Jouw Adaptiviteitsscan resultaat",
+                result_html
+            )
+            st.success("Resultaat is ook naar je e-mail gestuurd 📧")
+        except Exception as e:
+            st.error(f"E-mail kon niet verzonden worden: {e}")
 
-    
-try:
-    send_email(
-        st.session_state.email,
-        "Jouw Adaptiviteitsscan resultaat",
-        result_html
-    )
-    st.success("Resultaat is ook naar je e-mail gestuurd 📧")
-except Exception as e:
-    st.error(f"E-mail kon niet verzonden worden: {e}")
-    
+        # BELANGRIJK: voorkomt dubbele mails bij reruns
+        st.session_state.email_sent = True
+
     # ---------------------------
     # LAYOUT
     # ---------------------------
     col1, col2 = st.columns([2, 2], gap="large")
 
-    # ---------------------------
-    # LEFT: STICKY RADAR
-    # ---------------------------
     with col1:
         radar_plot(pivot)
 
-    # ---------------------------
-    # RIGHT: SCROLLING TEXT
-    # ---------------------------
     with col2:
         with st.container(height=700):
 
@@ -801,7 +784,7 @@ except Exception as e:
             for _, row in pivot.iterrows():
                 pillar = row["pillar"]
                 score = round(row["score"], 1)
-    
+
                 title = pillar_data[pillar]["title"]
                 description = pillar_data[pillar]["description"]
                 meanings = pillar_data[pillar]["score_meaning"]
@@ -811,29 +794,19 @@ except Exception as e:
                 st.markdown(f"### {title} — {score}/7")
 
                 st.markdown(f"""
-    {description}
+{description}
 
-    **Wat betekent mijn score?**  
-    {explanation}
-    """)
+**Wat betekent mijn score?**  
+{explanation}
+""")
 
                 st.markdown(
                     "<hr style='margin:8px 0; opacity:0.3;'>",
                     unsafe_allow_html=True
                 )
 
-            # minder agressieve spacing dan st.divider()
-            st.markdown("<hr style='margin:6px 0; opacity:0.6'>", unsafe_allow_html=True)
-
-        st.markdown("</div>", unsafe_allow_html=True)
-
     # ---------------------------
-    # MATURITEIT - TIJDELIJK OM NIVEAU TE TESTEN
-    # ---------------------------
-  #  st.write(f"Maturiteitsniveau: {level} / 5")
-
-    # ---------------------------
-    # FEEDBACK
+    # FEEDBACK (ONDERAAN)
     # ---------------------------
     st.subheader("Je adaptiviteit")
     st.markdown(feedback(level))
@@ -845,4 +818,5 @@ except Exception as e:
     if st.button("Opnieuw invullen"):
         st.session_state.step = 1
         st.session_state.answers = {}
+        st.session_state.email_sent = False
         st.rerun()
