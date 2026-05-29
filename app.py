@@ -9,6 +9,23 @@ import smtplib
 from email.mime.text import MIMEText
 
 # ---------------------------
+# EMAIL FUNCTIE (MUST BE GLOBAL)
+# ---------------------------
+def send_email(to_email, subject, body):
+    sender_email = st.secrets["gmail_user"]
+    sender_password = st.secrets["gmail_password"]
+
+    msg = MIMEText(body, "html")
+    msg["Subject"] = subject
+    msg["From"] = sender_email
+    msg["To"] = to_email
+
+    with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.send_message(msg)
+        
+# ---------------------------
 # APP CONFIG
 # ---------------------------
 st.markdown('<div id="top"></div>', unsafe_allow_html=True)
