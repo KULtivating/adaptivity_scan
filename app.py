@@ -821,10 +821,17 @@ elif st.session_state.step == 3:
         # ---------------------------
         html += f"""
         <hr>
-    
+        
         <h3>Je adaptiviteit</h3>
-        <p>{feedback(level)}</p>
-    
+        
+        <div style="white-space: pre-line;">
+        {feedback(level)
+            .replace("### Volgende stappen:", "<b>Volgende stappen:</b>")
+            .replace("### Eerste kleine stap", "<b>Eerste kleine stap</b>")
+            .replace("- ", "• ")}
+        }
+        </div>
+        
         <hr>
         """
     
