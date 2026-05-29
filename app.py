@@ -792,10 +792,53 @@ elif st.session_state.step == 3:
         html += f"""
         <h3>Advies</h3>
         <p>{feedback(level)}</p>
+        
+        <hr style="margin:25px 0;">
+        
+        <h3>Vragen of samen verder aan de slag?</h3>
+        
+        <p>
+        We hopen dat dit rapport je helpt om inzicht te krijgen in hoe adaptiviteit zich in jouw context ontwikkelt, en waar mogelijke groeikansen liggen.
+        </p>
+        
+        <p>
+        Heb je vragen over de resultaten, of wil je samen verkennen wat dit kan betekenen voor jouw team of organisatie,
+        dan kan je ons gerust contacteren. We gaan graag in gesprek om de inzichten te duiden en mee te denken over mogelijke vervolgstappen.
+        </p>
+        
+        <p>
+        Daarnaast begeleiden we organisaties ook in het ruimer uitrollen van deze scan en het vertalen van de resultaten naar concrete acties op team- en organisatieniveau.
+        </p>
+        
+        <hr style="margin:20px 0;">
+        
+        <h3>Verder verdiepen in adaptiviteit</h3>
+        
+        <p>
+        Deze scan geeft je een beeld van je <b>persoonlijke adaptiviteit</b>: hoe jij als individu omgaat met verandering, leren, veerkracht en innovatie.
+        </p>
+        
+        <p>
+        Wil je ook begrijpen welke factoren in je <b>werkomgeving</b> jouw adaptief gedrag versterken of net belemmeren?
+        Dan kan je de <b>organisatiescan</b> gebruiken als logische volgende stap.
+        </p>
+        
+        <p>
+        👉 Ontdek de organisatiescan hier:<br>
+        <a href="https://organisatiescan.streamlit.app/" target="_blank">
+        Organisatiescan
+        </a>
+        </p>
+        
+        <hr style="margin:20px 0;">
 
-        </body>
-        </html>
-        """
+<p>
+Dank je wel voor je deelname.
+</p>
+
+</body>
+</html>
+"""
 
         return html
 
