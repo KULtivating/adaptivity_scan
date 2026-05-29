@@ -836,19 +836,19 @@ elif st.session_state.step == 3:
     # COMMERCIËLE + TWEEDE SCAN SECTIE
     # ---------------------------
     html += """
-    <h3>Verder verdiepen in adaptiviteit</h3>
+    <h3>Verder verdiepen in adaptiviteit?</h3>
 
     <p>
     Deze scan geeft je inzicht in je <b>persoonlijke adaptiviteit</b>: hoe jij zelf omgaat met verandering, leren, veerkracht en innovatie.
     </p>
 
     <p>
-    Er is ook een tweede perspectief: de <b>organisatiecontext</b> waarin dit gedrag ontstaat.
+    Er is ook een tweede perspectief: de <b>context</b> waarin dit gedrag ontstaat.
     Die scan helpt je begrijpen welke factoren in je omgeving jouw adaptief gedrag versterken of net belemmeren.
     </p>
 
     <p>
-    👉 Ontdek de organisatiescan hier:<br>
+    Ontdek de organisatiescan hier:<br>
     <a href="https://organisatiescan.streamlit.app/" target="_blank">
     Organisatiescan
     </a>
