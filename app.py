@@ -749,131 +749,131 @@ elif st.session_state.step == 3:
     # HTML REPORT BUILDER (MAIL + EVENTUEEL PDF)
     # ---------------------------
     def build_report_html(level, pivot):
-
-    html = f"""
-    <html>
-    <head>
-        <style>
-            body {{
-                font-family: Arial, sans-serif;
-                color: #222;
-                line-height: 1.6;
-            }}
-            h2 {{
-                color: #2E86C1;
-            }}
-            .box {{
-                padding: 10px;
-                margin-bottom: 10px;
-                border-left: 4px solid #2E86C1;
-                background: #f5f9fc;
-            }}
-            .pillar {{
-                margin-bottom: 15px;
-                padding: 10px;
-                border-left: 3px solid #999;
-                background: #fafafa;
-            }}
-        </style>
-    </head>
-    <body>
-
-    <h2>Jouw Adaptiviteitsscan resultaat</h2>
-
-    <p><strong>Maturiteitsniveau:</strong> {level} / 5</p>
-
-    <hr>
-
-    <h3>Overzicht kernpijlers</h3>
-    """
-
-    # ---------------------------
-    # PILLARS (zoals in app + extra uitleg)
-    # ---------------------------
-    for _, row in pivot.iterrows():
-
-        pillar = row["pillar"]
-        score = round(row["score"], 1)
-
-        title = pillar_data[pillar]["title"]
-        description = pillar_data[pillar]["description"]
-        meanings = pillar_data[pillar]["score_meaning"]
-
-        # simpele interpretatie
-        if score <= 2:
-            interp = meanings["low"]
-        elif score <= 4:
-            interp = meanings["mid"]
-        elif score <= 5:
-            interp = meanings["good"]
-        else:
-            interp = meanings["high"]
-
-        html += f"""
-        <div class="pillar">
-            <h4>{title}</h4>
-            <p><b>Score:</b> {score} / 7</p>
-
-            <p>{description}</p>
-
-            <p><b>Interpretatie:</b><br>{interp}</p>
-        </div>
+        html = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    color: #222;
+                    line-height: 1.6;
+                }}
+                h2 {{
+                    color: #2E86C1;
+                }}
+                .box {{
+                    padding: 10px;
+                    margin-bottom: 10px;
+                    border-left: 4px solid #2E86C1;
+                    background: #f5f9fc;
+                }}
+                .pillar {{
+                    margin-bottom: 15px;
+                    padding: 10px;
+                    border-left: 3px solid #999;
+                    background: #fafafa;
+                }}
+            </style>
+        </head>
+        <body>
+    
+        <h2>Jouw Adaptiviteitsscan resultaat</h2>
+    
+        <p><strong>Maturiteitsniveau:</strong> {level} / 5</p>
+    
+        <hr>
+    
+        <h3>Overzicht kernpijlers</h3>
         """
-
-    # ---------------------------
-    # ADAPTIVITEIT (JOUW BESTAANDE FEEDBACK)
-    # ---------------------------
-    html += f"""
-    <hr>
-
-    <h3>Je adaptiviteit</h3>
-    <p>{feedback(level)}</p>
-
-    <hr>
-    """
-
-    # ---------------------------
-    # COMMERCIËLE + TWEEDE SCAN SECTIE
-    # ---------------------------
-    html += """
-    <h3>Verder verdiepen in adaptiviteit?</h3>
-
-    <p>
-    Deze scan geeft je inzicht in je <b>persoonlijke adaptiviteit</b>: hoe jij zelf omgaat met verandering, leren, veerkracht en innovatie.
-    </p>
-
-    <p>
-    Er is ook een tweede perspectief: de <b>context</b> waarin dit gedrag ontstaat.
-    Die scan helpt je begrijpen welke factoren in je omgeving jouw adaptief gedrag versterken of net belemmeren.
-    </p>
-
-    <p>
-    Ontdek de organisatiescan hier:<br>
-    <a href="https://organisatiescan.streamlit.app/" target="_blank">
-    Organisatiescan
-    </a>
-    </p>
-
-    <hr>
-
-    <h3>Vragen of samen verder aan de slag?</h3>
-
-    <p>
-    Heb je vragen over de resultaten of wil je dit vertalen naar je team of organisatie,
-    dan gaan we graag met je in gesprek om de inzichten verder te duiden en te vertalen naar actie.
-    </p>
-
-    <p>
-    Daarnaast begeleiden we organisaties in het breder uitrollen van deze scan en het omzetten van inzichten naar concrete interventies op team- en organisatieniveau.
-    </p>
-
-    <p><b>Dank je wel voor je deelname.</b></p>
-
-    </body>
-    </html>
-    """
-
-    return html
+    
+        # ---------------------------
+        # PILLARS (zoals in app + extra uitleg)
+        # ---------------------------
+        for _, row in pivot.iterrows():
+    
+            pillar = row["pillar"]
+            score = round(row["score"], 1)
+    
+            title = pillar_data[pillar]["title"]
+            description = pillar_data[pillar]["description"]
+            meanings = pillar_data[pillar]["score_meaning"]
+    
+            # simpele interpretatie
+            if score <= 2:
+                interp = meanings["low"]
+            elif score <= 4:
+                interp = meanings["mid"]
+            elif score <= 5:
+                interp = meanings["good"]
+            else:
+                interp = meanings["high"]
+    
+            html += f"""
+            <div class="pillar">
+                <h4>{title}</h4>
+                <p><b>Score:</b> {score} / 7</p>
+    
+                <p>{description}</p>
+    
+                <p><b>Interpretatie:</b><br>{interp}</p>
+            </div>
+            """
+    
+        # ---------------------------
+        # ADAPTIVITEIT (JOUW BESTAANDE FEEDBACK)
+        # ---------------------------
+        html += f"""
+        <hr>
+    
+        <h3>Je adaptiviteit</h3>
+        <p>{feedback(level)}</p>
+    
+        <hr>
+        """
+    
+        # ---------------------------
+        # COMMERCIËLE + TWEEDE SCAN SECTIE
+        # ---------------------------
+        html += """
+        <hr>
+        <h3>Verder verdiepen in adaptiviteit?</h3>
+    
+        <p>
+        Deze scan geeft je inzicht in je <b>persoonlijke adaptiviteit</b>: hoe jij zelf omgaat met verandering, leren, veerkracht en innovatie.
+        </p>
+    
+        <p>
+        Er is ook een tweede perspectief: de <b>context</b> waarin dit gedrag ontstaat.
+        Die scan helpt je begrijpen welke factoren in je omgeving jouw adaptief gedrag versterken of net belemmeren.
+        </p>
+    
+        <p>
+        Ontdek de organisatiescan hier:<br>
+        <a href="https://organisatiescan.streamlit.app/" target="_blank">
+        Organisatiescan
+        </a>
+        </p>
+    
+        <hr>
+    
+        <h3>Vragen of samen verder aan de slag?</h3>
+    
+        <p>
+        Heb je vragen over de resultaten of wil je dit vertalen naar je team of organisatie,
+        dan gaan we graag met je in gesprek om de inzichten verder te duiden en te vertalen naar actie.
+        </p>
+    
+        <p>
+        Daarnaast begeleiden we organisaties in het breder uitrollen van deze scan en het omzetten van inzichten naar concrete interventies op team- en organisatieniveau.
+        </p>
+    
+        <p><b>Dank je wel voor je deelname.</b></p>
+    
+        </body>
+        </html>
+        """
+    
+        return html
 
 
 
