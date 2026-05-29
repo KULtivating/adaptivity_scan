@@ -268,6 +268,17 @@ def compute_maturity_level(block_scores_df):
     else:
         return 5
 
+# ---------------------------
+# FEEDBACK FORMATTING (NIEUW)
+# ---------------------------
+def format_feedback(text):
+    return (
+        text
+        .replace("### Volgende stappen:", "<br><br><b>Volgende stappen:</b><br>")
+        .replace("### Eerste kleine stap", "<br><br><b>Eerste kleine stap</b><br>")
+        .replace("- ", "• ")
+        .replace("\n", "<br>")
+    )
 
 def feedback(level):
     texts = {
@@ -839,13 +850,17 @@ elif st.session_state.step == 3:
         
         <h3>Je adaptiviteit</h3>
         
-        <div style="white-space: pre-line;">
-        {feedback(level)
-            .replace("### Volgende stappen:", "<b>Volgende stappen:</b>")
-            .replace("### Eerste kleine stap", "<b>Eerste kleine stap</b>")
-            .replace("- ", "• ")
-        }
+        html += f"""
+        <hr>
+        
+        <h3>Je adaptiviteit</h3>
+        
+        <div>
+        {format_feedback(feedback(level))}
         </div>
+        
+        <hr>
+        """
         
         <hr>
         """
