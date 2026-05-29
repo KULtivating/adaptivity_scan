@@ -5,6 +5,48 @@ import plotly.express as px
 import gspread
 import streamlit.components.v1 as components
 from google.oauth2.service_account import Credentials
+import smtplib
+from email.mime.text import MIMEText
+
+# ---------------------------
+EMAIL FUNCTIE
+#----------------------------
+def send_email(to_email, subject, body):
+    sender_email = st.secrets["gmail_user"]
+    sender_password = st.secrets["gmail_password"]
+
+    msg = MIMEText(body, "html")
+    msg["Subject"] = subject
+    msg["From"] = sender_email
+    msg["To"] = to_email
+
+    with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.send_message(msg)
+
+result_html = f"""
+<h2>Jouw Adaptiviteitsscan resultaat</h2>
+
+<p><strong>Maturiteitsniveau:</strong> {level} / 5</p>
+
+<h3>Kernpijlers</h3>
+<ul>
+"""
+
+for _, row in pivot.iterrows():
+    pillar = row["pillar"]
+    score = round(row["score"], 1)
+    title = pillar_data[pillar]["title"]
+
+    result_html += f"<li><strong>{title}</strong>: {score}/7</li>"
+
+result_html += "</ul>"
+
+result_html += f"""
+<h3>Advies</h3>
+<p>{feedback(level)}</p>
+"""
 
 # ---------------------------
 # APP CONFIG
@@ -545,7 +587,7 @@ if st.session_state.step == 1:
     st.subheader("Stap 1: Je gegevens")
 
     naam = st.text_input("Naam")
-    email = st.text_input("Email")
+    email = st.text_input("Email - hierop ontvang je jouw persoonlijke feedbackrapport")
     functie = st.text_input("Functie")
     organisatie = st.text_input("Organisatie")
 
@@ -726,7 +768,17 @@ elif st.session_state.step == 3:
     # ---------------------------
     pivot, block_scores = compute_scores(st.session_state.answers)
     level = compute_maturity_level(block_scores)
-
+    
+    try:
+        send_email(
+            st.session_state.email,
+            "Jouw Adaptiviteitsscan resultaat",
+            result_html
+        )
+        st.success("Resultaat is ook naar je e-mail gestuurd 📧")
+    except Exception as e:
+        st.error(f"E-mail kon niet verzonden worden: {e}")
+    
     # ---------------------------
     # LAYOUT
     # ---------------------------
