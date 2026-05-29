@@ -856,9 +856,6 @@ elif st.session_state.step == 3:
         
         <hr>
         """
-        
-        <hr>
-        """
     
         # ---------------------------
         # COMMERCIËLE + TWEEDE SCAN SECTIE
@@ -951,11 +948,11 @@ elif st.session_state.step == 3:
                 st.markdown(f"### {title} — {score}/7")
 
                 st.markdown(f"""
-{description}
-
-**Wat betekent mijn score?**  
-{explanation}
-""")
+                {description}
+                
+                **Wat betekent mijn score?**  
+                {explanation}
+                """)
 
                 st.markdown("<hr style='margin:8px 0; opacity:0.3;'>",
                             unsafe_allow_html=True)
