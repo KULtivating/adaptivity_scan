@@ -792,14 +792,14 @@ elif st.session_state.step == 3:
         <table style="width:100%; margin-bottom:20px;">
         <tr>
         <td>
-            <img src="https://YOUR_LOGO_URL/logo_coliberate.png" height="50">
+            <img src="logo Coliberate.png" height="50">
         </td>
         <td style="text-align:right;">
-            <img src="https://YOUR_LOGO_URL/logo_kultivating.png" height="50">
+            <img src="logo KULtivating.webp" height="50">
         </td>
         </tr>
         </table>
-
+    
         <h2>Jouw Adaptiviteitsscan resultaat</h2>
         <p>
         Bedankt voor je deelname aan de Adaptiviteitsscan.
