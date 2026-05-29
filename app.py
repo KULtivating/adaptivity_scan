@@ -816,16 +816,10 @@ elif st.session_state.step == 3:
         </head>
         <body>
 
-        <table style="width:100%; margin-bottom:20px;">
-        <tr>
-        <td>
-            <img src="cid:logo_coliberate" height="50">
-        </td>
-        <td style="text-align:right;">
-            <img src="cid:logo_kultivating" height="50">
-        </td>
-        </tr>
-        </table>
+        <div style="width:100%; display:block; text-align:right;">
+            <img src="cid:logo_coliberate" height="60"  style="margin-right:10px;">
+            <img src="cid:logo_kultivating" height="60">
+        </div>
     
         <h2>Jouw Adaptiviteitsscan resultaat</h2>
         <p>
