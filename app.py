@@ -32,7 +32,7 @@ def send_email(to_email, subject, html_content):
     # LOGO 1
     # ---------------------------
     with open("assets/logo Coliberate.png", "rb") as img:
-        mime_img = MIMEImage(img.read())
+        mime_img = MIMEImage(img.read(), _subtype="png")
         mime_img.add_header("Content-ID", "<logo_coliberate>")
         mime_img.add_header("Content-Disposition", "inline", filename="logo_coliberate.png")
         msg.attach(mime_img)
@@ -41,7 +41,7 @@ def send_email(to_email, subject, html_content):
     # LOGO 2
     # ---------------------------
     with open("assets/logo KULtivating.png", "rb") as img:
-        mime_img = MIMEImage(img.read())
+        mime_img = MIMEImage(img.read(), _subtype="png")
         mime_img.add_header("Content-ID", "<logo_kultivating>")
         mime_img.add_header("Content-Disposition", "inline", filename="logo_kultivating.png")
         msg.attach(mime_img)
@@ -819,10 +819,10 @@ elif st.session_state.step == 3:
         <table style="width:100%; margin-bottom:20px;">
         <tr>
         <td>
-            <img src="logo Coliberate.png" height="50">
+            <img src="cid:logo_coliberate" height="50">
         </td>
         <td style="text-align:right;">
-            <img src="logo KULtivating.webp" height="50">
+            <img src="cid:logo_kultivating" height="50">
         </td>
         </tr>
         </table>
