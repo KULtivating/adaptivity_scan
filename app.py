@@ -8,20 +8,6 @@ from google.oauth2.service_account import Credentials
 import smtplib
 from email.mime.text import MIMEText
 
-def send_email(to_email, subject, body):
-    sender_email = st.secrets["gmail_user"]
-    sender_password = st.secrets["gmail_password"]
-
-    msg = MIMEText(body, "html")
-    msg["Subject"] = subject
-    msg["From"] = sender_email
-    msg["To"] = to_email
-
-    with smtplib.SMTP("smtp.gmail.com", 587) as server:
-        server.starttls()
-        server.login(sender_email, sender_password)
-        server.send_message(msg)
-
 # ---------------------------
 # APP CONFIG
 # ---------------------------
@@ -743,10 +729,22 @@ elif st.session_state.step == 3:
     pivot, block_scores = compute_scores(st.session_state.answers)
     level = compute_maturity_level(block_scores)
 
-    # ---------------------------
+# ---------------------------
 # EMAIL FUNCTIE
 #----------------------------
+def send_email(to_email, subject, body):
+    sender_email = st.secrets["gmail_user"]
+    sender_password = st.secrets["gmail_password"]
 
+    msg = MIMEText(body, "html")
+    msg["Subject"] = subject
+    msg["From"] = sender_email
+    msg["To"] = to_email
+
+    with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.send_message(msg)
 result_html = f"""
 <h2>Jouw Adaptiviteitsscan resultaat</h2>
 
