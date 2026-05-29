@@ -7,6 +7,7 @@ import streamlit.components.v1 as components
 from google.oauth2.service_account import Credentials
 import smtplib
 from email.mime.text import MIMEText
+import markdown
 
 # ---------------------------
 # EMAIL FUNCTIE (MUST BE GLOBAL)
@@ -779,10 +780,6 @@ elif st.session_state.step == 3:
     
         <h2>Jouw Adaptiviteitsscan resultaat</h2>
     
-        <p><strong>Maturiteitsniveau:</strong> {level} / 5</p>
-    
-        <hr>
-    
         <h3>Overzicht kernpijlers</h3>
         """
     
@@ -812,13 +809,13 @@ elif st.session_state.step == 3:
             <div class="pillar">
                 <h4>{title}</h4>
                 <p><b>Score:</b> {score} / 7</p>
-    
                 <p>{description}</p>
-    
-                <p><b>Interpretatie:</b><br>{interp}</p>
+                <p><b>Interpretatie:</b></p>
+                <p>{interp}</p>
             </div>
             """
-    
+        feedback_html = markdown.markdown(feedback(level))
+        
         # ---------------------------
         # ADAPTIVITEIT (JOUW BESTAANDE FEEDBACK)
         # ---------------------------
