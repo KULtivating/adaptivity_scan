@@ -911,9 +911,9 @@ elif st.session_state.step == 3:
         </p>
     
         <p>
-        Ontdek de organisatiescan hier:<br>
-        <a href="https://organisatiescan.streamlit.app/" target="_blank">
-        Organisatiescan
+        Ontdek de systeemscan hier:<br>
+        <a href="https://systeemscan.streamlit.app/" target="_blank">
+        Systeemscan
         </a>
         </p>
     
