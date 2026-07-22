@@ -5,12 +5,21 @@ import plotly.express as px
 import gspread
 import streamlit.components.v1 as components
 from google.oauth2.service_account import Credentials
+from translations import (
+    FEEDBACK_TRANSLATIONS,
+    LANGUAGE_NAMES,
+    PILLAR_TRANSLATIONS,
+    QUESTION_TRANSLATIONS,
+    SHORT_DESCRIPTIONS,
+    SUMMARY_TRANSLATIONS,
+    UI_TEXTS as TRANSLATED_UI_TEXTS,
+)
         
 # ---------------------------
 # APP CONFIG
 # ---------------------------
 st.set_page_config(
-    page_title="Adaptivity Maturiteitsscan",
+    page_title="Adaptability Scan",
     page_icon="🌱",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -42,6 +51,18 @@ def connect_sheet():
 
 
 sheet = connect_sheet()
+
+
+def ensure_language_column(worksheet):
+    """Voeg de kolom `taal` eenmalig toe en geef haar 1-based positie terug."""
+    headers = worksheet.row_values(1)
+    normalized = [str(header).strip().lower() for header in headers]
+    if "taal" in normalized:
+        return normalized.index("taal") + 1
+
+    language_column = len(headers) + 1
+    worksheet.update_cell(1, language_column, "taal")
+    return language_column
 
 # ---------------------------
 # SESSION STATE
@@ -148,6 +169,7 @@ questions = sorted(question_order, key=question_order.get)
 QUESTION_TEXTS = {
     "nl": {question_map[text]["code"]: text for text in questions},
 }
+QUESTION_TEXTS.update(QUESTION_TRANSLATIONS)
 QUESTION_META = {
     question_map[text]["code"]: {
         **question_map[text],
@@ -182,8 +204,25 @@ UI_TEXTS = {
         "restart": "Opnieuw invullen",
     }
 }
+UI_TEXTS.update(TRANSLATED_UI_TEXTS)
 
-LANGUAGE = "nl"  # Voeg hier later een taalkeuze aan toe zodra vertalingen klaar zijn.
+requested_language = st.query_params.get("lang", "nl")
+if requested_language not in LANGUAGE_NAMES:
+    requested_language = "nl"
+if "language" not in st.session_state:
+    st.session_state.language = requested_language
+
+language_spacer, language_picker = st.columns([5, 1])
+with language_picker:
+    LANGUAGE = st.selectbox(
+        "Language · Taal · Langue",
+        options=list(LANGUAGE_NAMES),
+        format_func=LANGUAGE_NAMES.get,
+        key="language",
+    )
+
+if st.query_params.get("lang") != LANGUAGE:
+    st.query_params["lang"] = LANGUAGE
 T = UI_TEXTS[LANGUAGE]
 
 scale_labels = [
@@ -300,6 +339,8 @@ def format_feedback(text):
     )
 
 def feedback(level):
+    if LANGUAGE in FEEDBACK_TRANSLATIONS:
+        return FEEDBACK_TRANSLATIONS[LANGUAGE].get(level, "")
     texts = {
         0: """
 Je hebt een duidelijke voorkeur voor vertrouwde manieren van werken en dat is heel begrijpelijk. Verandering vraagt energie, brengt onzekerheid mee en kan soms voelen alsof je grip verliest. Jouw kritische blik is daarbij ook waardevol: je voelt vaak snel aan wanneer iets nog niet klopt of onvoldoende doordacht is. Dat helpt om veranderingen niet zomaar blind te volgen.
@@ -560,18 +601,23 @@ pillar_data = {
     }
 }
 
+if LANGUAGE in PILLAR_TRANSLATIONS:
+    pillar_data = PILLAR_TRANSLATIONS[LANGUAGE]
+
+pillar_labels = {code: data["title"] for code, data in pillar_data.items()}
+
 PERCENTILE_DATA = {
-    "Veranderattitude": [(4.56, 2.50), (4.78, 5.00), (4.89, 10.00), (5.00, 20.00), (5.11, 22.50), (5.22, 40.00), (5.44, 42.50), (5.56, 47.50), (5.67, 62.50), (5.78, 65.00), (5.89, 72.50), (6.00, 80.00), (6.11, 87.50), (6.22, 97.50), (6.67, 100.00)],
-    "Veerkracht & Zelfregulatie": [(2.40, 0.66), (2.60, 3.29), (2.80, 5.92), (3.00, 8.55), (3.20, 12.50), (3.40, 16.45), (3.60, 21.71), (3.80, 37.50), (4.00, 48.03), (4.20, 57.89), (4.40, 67.11), (4.60, 72.37), (4.80, 75.00), (5.00, 75.66), (5.20, 77.63), (5.40, 80.92), (5.60, 82.24), (5.80, 88.16), (6.00, 92.11), (6.20, 94.74), (6.40, 98.68), (6.60, 99.34), (6.80, 100.00)],
-    "Leermotivatie & Ontwikkeling": [(2.25, 0.66), (2.50, 1.97), (2.75, 3.29), (3.00, 3.95), (3.25, 8.55), (3.50, 11.84), (3.75, 15.13), (4.00, 19.74), (4.25, 28.29), (4.50, 38.16), (4.75, 50.66), (5.00, 62.50), (5.25, 71.71), (5.50, 78.95), (5.75, 87.50), (6.00, 95.39), (6.25, 96.71), (6.50, 98.03), (6.75, 100.00)],
-    "Vooruitzien & Voorbereiden": [(4.00, 2.50), (4.12, 5.00), (4.25, 15.00), (4.38, 17.50), (4.50, 20.00), (4.62, 22.50), (4.75, 25.00), (4.88, 27.50), (5.00, 37.50), (5.12, 45.00), (5.25, 47.50), (5.38, 50.00), (5.50, 67.50), (5.71, 70.00), (5.75, 75.00), (5.88, 82.50), (6.00, 87.50), (6.25, 97.50), (6.50, 100.00)],
-    "Creativiteit & Innovatie": [(3.60, 5.00), (3.80, 7.50), (4.00, 10.00), (4.20, 15.00), (4.40, 22.50), (4.80, 32.50), (5.00, 45.00), (5.20, 57.50), (5.60, 65.00), (5.80, 77.50), (6.00, 85.00), (6.20, 92.50), (6.40, 95.00), (6.60, 97.50), (7.00, 100.00)],
+    "VA": [(4.56, 2.50), (4.78, 5.00), (4.89, 10.00), (5.00, 20.00), (5.11, 22.50), (5.22, 40.00), (5.44, 42.50), (5.56, 47.50), (5.67, 62.50), (5.78, 65.00), (5.89, 72.50), (6.00, 80.00), (6.11, 87.50), (6.22, 97.50), (6.67, 100.00)],
+    "VZ": [(2.40, 0.66), (2.60, 3.29), (2.80, 5.92), (3.00, 8.55), (3.20, 12.50), (3.40, 16.45), (3.60, 21.71), (3.80, 37.50), (4.00, 48.03), (4.20, 57.89), (4.40, 67.11), (4.60, 72.37), (4.80, 75.00), (5.00, 75.66), (5.20, 77.63), (5.40, 80.92), (5.60, 82.24), (5.80, 88.16), (6.00, 92.11), (6.20, 94.74), (6.40, 98.68), (6.60, 99.34), (6.80, 100.00)],
+    "LO": [(2.25, 0.66), (2.50, 1.97), (2.75, 3.29), (3.00, 3.95), (3.25, 8.55), (3.50, 11.84), (3.75, 15.13), (4.00, 19.74), (4.25, 28.29), (4.50, 38.16), (4.75, 50.66), (5.00, 62.50), (5.25, 71.71), (5.50, 78.95), (5.75, 87.50), (6.00, 95.39), (6.25, 96.71), (6.50, 98.03), (6.75, 100.00)],
+    "VV": [(4.00, 2.50), (4.12, 5.00), (4.25, 15.00), (4.38, 17.50), (4.50, 20.00), (4.62, 22.50), (4.75, 25.00), (4.88, 27.50), (5.00, 37.50), (5.12, 45.00), (5.25, 47.50), (5.38, 50.00), (5.50, 67.50), (5.71, 70.00), (5.75, 75.00), (5.88, 82.50), (6.00, 87.50), (6.25, 97.50), (6.50, 100.00)],
+    "CI": [(3.60, 5.00), (3.80, 7.50), (4.00, 10.00), (4.20, 15.00), (4.40, 22.50), (4.80, 32.50), (5.00, 45.00), (5.20, 57.50), (5.60, 65.00), (5.80, 77.50), (6.00, 85.00), (6.20, 92.50), (6.40, 95.00), (6.60, 97.50), (7.00, 100.00)],
 }
 
 
-def get_percentile(title, score):
+def get_percentile(pillar_code, score):
     """Interpoleer de score lineair binnen de externe normgroep."""
-    values = PERCENTILE_DATA.get(title, [])
+    values = PERCENTILE_DATA.get(pillar_code, [])
     if not values:
         return None
     if score < values[0][0]:
@@ -589,19 +635,21 @@ def get_percentile(title, score):
 
 def percentile_label(percentile):
     if percentile is None:
-        return "Geen normdata"
+        return T["no_norm"]
     if percentile < 10:
-        return "Zeer laag"
+        return T["percentile_very_low"]
     if percentile < 30:
-        return "Eerder laag"
+        return T["percentile_low"]
     if percentile <= 70:
-        return "Rond het midden"
+        return T["percentile_middle"]
     if percentile <= 90:
-        return "Eerder hoog"
-    return "Zeer hoog"
+        return T["percentile_high"]
+    return T["percentile_very_high"]
 
 
 def short_summary(level):
+    if LANGUAGE in SUMMARY_TRANSLATIONS:
+        return SUMMARY_TRANSLATIONS[LANGUAGE].get(level, "")
     summaries = {
         0: "Je adaptiviteit staat nog aan het begin van haar ontwikkeling.",
         1: "Je werkt correct mee met verandering wanneer dat nodig is.",
@@ -621,13 +669,7 @@ PILLAR_ICONS = {
     "CI": '<svg viewBox="0 0 64 64"><path d="M21 28a11 11 0 1 1 22 0c0 6-3 8-6 12H27c-3-4-6-6-6-12z"/><path d="M27 45h10M29 50h6M32 5v7M10 28H3M61 28h-7"/></svg>',
 }
 
-PILLAR_SHORT_DESCRIPTIONS = {
-    "VA": "Positief en constructief omgaan met verandering.",
-    "VZ": "Omgaan met druk en emoties en herstellen bij tegenslag.",
-    "LO": "Continu willen leren en jezelf ontwikkelen.",
-    "VV": "Anticiperen op toekomstige veranderingen en je voorbereiden.",
-    "CI": "Nieuwe ideeën bedenken en toepassen om vooruit te gaan.",
-}
+PILLAR_SHORT_DESCRIPTIONS = SHORT_DESCRIPTIONS[LANGUAGE]
 
 
 def get_score_explanation(score, meanings):
@@ -784,10 +826,10 @@ with header_right:
 # ---------------------------
 if st.session_state.step == 1:
     st.markdown(f'<span class="section-pill">{T["details_step"]}</span>', unsafe_allow_html=True)
-    st.subheader("Vertel ons kort wie je bent")
+    st.subheader(T["details_title"])
 
     naam = st.text_input(T["name"])
-    email = st.text_input(T["email"], help=T["email_help"], placeholder="naam@organisatie.be")
+    email = st.text_input(T["email"], help=T["email_help"], placeholder="name@example.com")
     functie = st.text_input(T["role"])
     organisatie = st.text_input(T["organisation"])
     st.caption(T["email_help"])
@@ -808,23 +850,13 @@ if st.session_state.step == 1:
 elif st.session_state.step == 2:
 
     st.markdown(f'<span class="section-pill">{T["scan_step"]}</span>', unsafe_allow_html=True)
-    st.subheader("Duid voor elke uitspraak aan hoe vaak dit bij jou voorkomt")
+    st.subheader(T["scan_title"])
 
     answers = st.session_state.answers
 
     # ---------------------------
     # SCALE MAP
     # ---------------------------
-    scale_map = {
-        "Nooit": 1,
-        "Zeer zelden": 2,
-        "Zelden": 3,
-        "Soms": 4,
-        "Regelmatig": 5,
-        "Vaak": 6,
-        "Altijd": 7
-    }
-
     # ---------------------------
     # QUESTIONS
     # ---------------------------
@@ -840,7 +872,8 @@ elif st.session_state.step == 2:
             with col_a:
                 selected = st.radio(
                     label="",
-                    options=list(scale_map.keys()),
+                    options=list(range(1, 8)),
+                    format_func=lambda value: T["scale"][value - 1],
                     horizontal=True,
                     key=f"question_{code}",
                     index=None,
@@ -849,7 +882,7 @@ elif st.session_state.step == 2:
 
                 # 🔴 BELANGRIJK: expliciet opslaan
                 if selected:
-                    answers[code] = scale_map[selected]
+                    answers[code] = selected
 
         st.markdown(
             "<hr style='margin:8px 0; opacity:0.6;'>",
@@ -871,6 +904,7 @@ elif st.session_state.step == 2:
     if st.button(T["submit"], disabled=bool(missing)):
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        language_column = ensure_language_column(sheet)
 
         rows_to_add = []
 
@@ -881,7 +915,7 @@ elif st.session_state.step == 2:
             raw_score = score
             final_score = 8 - score if meta["direction"] == "neg" else score
 
-            rows_to_add.append([
+            storage_row = [
                 timestamp,
                 st.session_state.naam,
                 st.session_state.email,
@@ -893,7 +927,13 @@ elif st.session_state.step == 2:
                 raw_score,
                 final_score,
                 q
-            ])
+            ]
+            if language_column <= len(storage_row) + 1:
+                storage_row.insert(language_column - 1, LANGUAGE)
+            else:
+                storage_row.extend([""] * (language_column - len(storage_row) - 1))
+                storage_row.append(LANGUAGE)
+            rows_to_add.append(storage_row)
 
         sheet.append_rows(rows_to_add)
 
@@ -982,7 +1022,7 @@ elif st.session_state.step == 3:
     for _, row in pivot.iterrows():
         title = pillar_data[row["pillar"]]["title"]
         score = float(row["score"])
-        percentile = get_percentile(title, score)
+        percentile = get_percentile(row["pillar"], score)
         profile_rows.append({
             "code": row["pillar"],
             "title": title,
@@ -1000,14 +1040,14 @@ elif st.session_state.step == 3:
     with summary_column:
         summary_html = f"""
         <article class="profile-summary-card">
-            <h3>Wat valt op?</h3>
+            <h3>{T['what_stands_out']}</h3>
             <div class="summary-stat">
-                <b>Sterkste pijler</b>
+                <b>{T['strongest']}</b>
                 <strong>{strongest['title']}: {strongest['score']:.1f} / 7</strong>
                 <small>P{strongest['percentile']:.0f} · {strongest['percentile_label']}</small>
             </div>
             <div class="summary-stat">
-                <b>Grootste ontwikkelkans</b>
+                <b>{T['development']}</b>
                 <strong>{weakest['title']}: {weakest['score']:.1f} / 7</strong>
                 <small>P{weakest['percentile']:.0f} · {weakest['percentile_label']}</small>
             </div>
@@ -1026,7 +1066,7 @@ elif st.session_state.step == 3:
         description = PILLAR_SHORT_DESCRIPTIONS[pillar]
         explanation = get_score_explanation(round(score), pillar_data[pillar]["score_meaning"])
         score_percentage = max(0, min(100, (raw_score / 7) * 100))
-        percentile = get_percentile(title, raw_score)
+        percentile = get_percentile(pillar, raw_score)
         percentile_text = percentile_label(percentile)
 
         # Zonder regeleindes: anders kan Markdown ingesprongen HTML na kaart 1
@@ -1041,8 +1081,8 @@ elif st.session_state.step == 3:
             f'<div class="score-track"><div class="score-fill" style="width:{score_percentage:.1f}%"></div></div>'
             f'<span class="score-value">{score} / 7</span>'
             '</div>'
-            f'<span class="percentile-badge" title="P{percentile:.0f} betekent dat je hoger scoort dan ongeveer {percentile:.0f}% van de externe normgroep.">'
-            f'<b>Interpretatie</b><strong>P{percentile:.0f}</strong><small>{percentile_text}</small>'
+            f'<span class="percentile-badge" title="{T["percentile_tooltip"].format(p=f"{percentile:.0f}")}">'
+            f'<b>{T["percentile"]}</b><strong>P{percentile:.0f}</strong><small>{percentile_text}</small>'
             '</span>'
             '<div class="interpretation-box">'
             f'<strong>{T["interpretation"]}</strong><p>{explanation}</p>'
@@ -1051,11 +1091,7 @@ elif st.session_state.step == 3:
         )
         cards.append(card_html)
     st.markdown(f'<div class="pillar-grid">{"".join(cards)}</div>', unsafe_allow_html=True)
-    st.caption(
-        "Pxx toont je positie ten opzichte van de externe normgroep. "
-        "P76 betekent bijvoorbeeld dat je hoger scoort dan ongeveer 76% van die normgroep; "
-        "het is geen percentage juiste antwoorden."
-    )
+    st.caption(T["percentile_guide"])
 
     # ---------------------------
     # EXTRA FEEDBACK ONDERAAN
