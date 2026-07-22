@@ -1,1111 +1,222 @@
-import streamlit as st
-from datetime import datetime
-import pandas as pd
-import plotly.express as px
+from datetime import datetime, timedelta
+from hmac import compare_digest
+from zoneinfo import ZoneInfo
+
 import gspread
-import streamlit.components.v1 as components
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
 from google.oauth2.service_account import Credentials
-from translations import (
-    FEEDBACK_TRANSLATIONS,
-    LANGUAGE_NAMES,
-    PILLAR_TRANSLATIONS,
-    QUESTION_TRANSLATIONS,
-    SHORT_DESCRIPTIONS,
-    SUMMARY_TRANSLATIONS,
-    UI_TEXTS as TRANSLATED_UI_TEXTS,
-)
-        
-# ---------------------------
-# APP CONFIG
-# ---------------------------
-st.set_page_config(
-    page_title="Adaptability Scan",
-    page_icon="🌱",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
+from analytics import percentile, percentile_band, respondent_maturity, spread_band
 
-st.markdown('<div id="top"></div>', unsafe_allow_html=True)
+st.set_page_config(page_title="Live groepsdashboard · Adaptiviteit", page_icon="↗", layout="wide", initial_sidebar_state="collapsed")
 
-# ---------------------------
-# GOOGLE SHEETS CONNECTION
-# ---------------------------
-@st.cache_resource
-def connect_sheet():
-    scope = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ]
-
-    creds = Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"],
-        scopes=scope
-    )
-
-
-    client = gspread.authorize(creds)
-
-    sheet = client.open("Adaptivity Maturiteitsscan").sheet1
-
-    return sheet
-
-
-sheet = connect_sheet()
-
-
-def ensure_language_column(worksheet):
-    """Voeg de kolom `taal` eenmalig toe en geef haar 1-based positie terug."""
-    headers = worksheet.row_values(1)
-    normalized = [str(header).strip().lower() for header in headers]
-    if "taal" in normalized:
-        return normalized.index("taal") + 1
-
-    language_column = len(headers) + 1
-    worksheet.update_cell(1, language_column, "taal")
-    return language_column
-
-# ---------------------------
-# SESSION STATE
-# ---------------------------
-if "step" not in st.session_state:
-    st.session_state.step = 1
-
-if "answers" not in st.session_state:
-    st.session_state.answers = {}
-
-# ---------------------------
-# QUESTION MAP
-# ---------------------------
-question_map = {
-"Ik aanvaard verandering zoals die is.": {"pillar": "VA", "direction": "pos", "block": 2, "code": "CR_CA1"},
-"Ik houd mijn weerstand tegen verandering voor mijzelf.": {"pillar": "VA", "direction": "neg", "block": 2, "code": "CR_CD1"},
-"Ik trek mij terug uit alles wat met verandering te maken heeft.": {"pillar": "VA", "direction": "neg", "block": 1, "code": "CR_CD3"},
-"Ik werk goed mee met plannen voor verandering.": {"pillar": "VA", "direction": "pos", "block": 2, "code": "CR_CA2"},
-"Ik verzet mij actief tegen verandering.": {"pillar": "VA", "direction": "neg", "block": 1, "code": "CR_CR1"},
-"Ik steun verandering actief.": {"pillar": "VA", "direction": "pos", "block": 2, "code": "CR_CP1"},
-"Ik probeer actief om verandering te beïnvloeden of te vertragen.": {"pillar": "VA", "direction": "neg", "block": 1, "code": "CR_CR3"},
-"Ik toon uitstelgedrag bij het uitvoeren van verandering.": {"pillar": "VA", "direction": "neg", "block": 1, "code": "CR_CD2"},
-"Ik neem zelf initiatief om veranderingen in de praktijk te brengen.": {"pillar": "VA", "direction": "pos", "block": 2, "code": "CR_CP3"},
-
-"Ik ben gemotiveerd om nieuwe dingen te leren.": {"pillar": "LO", "direction": "pos", "block": 2, "code": "LO_M"},
-"Ik kan me gemakkelijk aanpassen aan veranderende situaties.": {"pillar": "VZ", "direction": "pos", "block": 2, "code": "Res2"},
-"Ik herstel snel wanneer ik te maken krijg met tegenslag.": {"pillar": "VZ", "direction": "pos", "block": 2, "code": "Res3"},
-"Ik blijf rustig in situaties waarin ik veel beslissingen moet nemen.": {"pillar": "VZ", "direction": "pos", "block": 2, "code": "IAP_WS1"},
-"Ik pas mijn werk gemakkelijk aan nieuwe omstandigheden aan.": {"pillar": "VZ", "direction": "pos", "block": 2, "code": "IAP_R2"},
-"Ik pas mijn gedrag graag aan wanneer dat nodig is om goed samen te werken.": {"pillar": "VZ", "direction": "pos", "block": 2, "code": "IAP_I2"},
-"Ik volg regelmatig opleidingen op of naast het werk, om mijn vaardigheden up-to-date te houden.": {"pillar": "LO", "direction": "pos", "block": 2, "code": "IAP_T1"},
-"Binnen mijn team of afdeling doen mensen een beroep op mij om nieuwe oplossingen aan te reiken.": {"pillar": "CI", "direction": "pos", "block": 4, "code": "IAP_C2"},
-
-"Ik ga actief op zoek naar elke kans die mij helpt om mijn functioneren te verbeteren (opleiding, groepsproject, uitwisseling met collega’s, enz.).": {"pillar": "LO", "direction": "pos", "block": 3, "code": "IAP_T2"},
-"Ik neem zelf initiatief om te beslissen wat en hoe ik leer.": {"pillar": "LO", "direction": "pos", "block": 3, "code": "LO_A"},
-
-"Ik volg de wereld rondom mij actief op om te zien wat mijn job in de toekomst kan beïnvloeden.": {"pillar": "VV", "direction": "pos", "block": 4, "code": "PB_SS1"},
-"Ik denk vooruit over mogelijke veranderingen in mijn organisatie als gevolg van ontwikkelingen in de wereld rondom mij (bv. markt, technologie).": {"pillar": "VV", "direction": "pos", "block": 4, "code": "PB_SS3"},
-"Ik probeer werkwijzen en systemen te ontwikkelen die op lange termijn goed werken, ook als dat in het begin wat meer tijd kost.": {"pillar": "VV", "direction": "pos", "block": 4, "code": "PB_PP1"},
-"Ik probeer de echte oorzaak te vinden van problemen die zich voordoen.": {"pillar": "VV", "direction": "pos", "block": 3, "code": "PB_PP2"},
-
-"Ik anticipeer op mogelijke problemen door vooraf scenario’s uit te werken en beslissingsopties klaar te hebben voordat ze nodig zijn.": {"pillar": "VV", "direction": "pos", "block": 4, "code": "IAP_Rx"},
-"Ik bouw bewust netwerkrelaties op die mij en anderen helpen om toekomstige veranderingen beter op te vangen of te benutten.": {"pillar": "VV", "direction": "pos", "block": 4, "code": "IAP_Ix"},
-"Ik zorg voor minder stress in de toekomst door structuren en processen te verbeteren en zo crisis situaties te voorkomen.": {"pillar": "VV", "direction": "pos", "block": 4, "code": "IAP_WSx"},
-
-"Ik bedenk nieuwe manieren om technologie beter te gebruiken in mijn werk.": {"pillar": "CI", "direction": "pos", "block": 4, "code": "IBIncr6"},
-"Ik ga zelfstandig op zoek naar nieuwe werkwijzen, technieken of hulpmiddelen.": {"pillar": "CI", "direction": "pos", "block": 4, "code": "IBRad4"},
-"Ik onderneem acties om verandering in mijn werk te realiseren.": {"pillar": "CI", "direction": "pos", "block": 3, "code": "EISB1"},
-"Ik bedenk nieuwe manieren van werken voor mijn organisatie.": {"pillar": "CI", "direction": "pos", "block": 3, "code": "EISB4"},
-"Ik spreek actief ideeën uit en draag voorstellen aan over hoe mijn organisatie zich kan vernieuwen om met toekomstige veranderingen om te gaan.": {"pillar": "VV", "direction": "pos", "block": 4, "code": "VOICE"},
-}
-
-# ---------------------------
-# ORDERED QUESTIONS (GECORRIGEERD)
-# ---------------------------
-question_order = {
-"Ik aanvaard verandering zoals die is.": 1,
-"Ik houd mijn weerstand tegen verandering voor mijzelf.": 14,
-"Ik trek mij terug uit alles wat met verandering te maken heeft.": 24,
-"Ik werk goed mee met plannen voor verandering.": 15,
-"Ik verzet mij actief tegen verandering.": 2,
-"Ik steun verandering actief.": 25,
-"Ik probeer actief om verandering te beïnvloeden of te vertragen.": 16,
-"Ik toon uitstelgedrag bij het uitvoeren van verandering.": 26,
-"Ik neem zelf initiatief om veranderingen in de praktijk te brengen.": 3,
-
-"Ik ben gemotiveerd om nieuwe dingen te leren.": 17,
-"Ik kan me gemakkelijk aanpassen aan veranderende situaties.": 4,
-"Ik herstel snel wanneer ik te maken krijg met tegenslag.": 13,
-"Ik blijf rustig in situaties waarin ik veel beslissingen moet nemen.": 27,
-"Ik pas mijn werk gemakkelijk aan nieuwe omstandigheden aan.": 5,
-"Ik pas mijn gedrag graag aan wanneer dat nodig is om goed samen te werken.": 28,
-"Ik volg regelmatig opleidingen op of naast het werk, om mijn vaardigheden up-to-date te houden.": 6,
-"Binnen mijn team of afdeling doen mensen een beroep op mij om nieuwe oplossingen aan te reiken.": 18,
-
-"Ik ga actief op zoek naar elke kans die mij helpt om mijn functioneren te verbeteren (opleiding, groepsproject, uitwisseling met collega’s, enz.).": 7,
-"Ik neem zelf initiatief om te beslissen wat en hoe ik leer.": 23,
-
-"Ik volg de wereld rondom mij actief op om te zien wat mijn job in de toekomst kan beïnvloeden.": 12,
-"Ik denk vooruit over mogelijke veranderingen in mijn organisatie als gevolg van ontwikkelingen in de wereld rondom mij (bv. markt, technologie).": 8,
-"Ik probeer werkwijzen en systemen te ontwikkelen die op lange termijn goed werken, ook als dat in het begin wat meer tijd kost.": 19,
-"Ik probeer de echte oorzaak te vinden van problemen die zich voordoen.": 29,
-
-"Ik anticipeer op mogelijke problemen door vooraf scenario’s uit te werken en beslissingsopties klaar te hebben voordat ze nodig zijn.": 9,
-"Ik bouw bewust netwerkrelaties op die mij en anderen helpen om toekomstige veranderingen beter op te vangen of te benutten.": 32,
-"Ik zorg voor minder stress in de toekomst door structuren en processen te verbeteren en zo crisis situaties te voorkomen.": 10,
-
-"Ik bedenk nieuwe manieren om technologie beter te gebruiken in mijn werk.": 22,
-"Ik ga zelfstandig op zoek naar nieuwe werkwijzen, technieken of hulpmiddelen.": 31,
-"Ik onderneem acties om verandering in mijn werk te realiseren.": 11,
-"Ik bedenk nieuwe manieren van werken voor mijn organisatie.": 30,
-"Ik spreek actief ideeën uit en draag voorstellen aan over hoe mijn organisatie zich kan vernieuwen om met toekomstige veranderingen om te gaan.": 21
-}
-
-# ---------------------------
-# ORDER QUESTIONS (single source of truth)
-# ---------------------------
-
-questions = sorted(question_order, key=question_order.get)
-
-# De technische logica gebruikt stabiele itemcodes, niet de zichtbare tekst.
-# Voeg later per taal een extra mapping toe (bv. "fr" en "en") zonder scoring
-# of historische data te wijzigen.
-QUESTION_TEXTS = {
-    "nl": {question_map[text]["code"]: text for text in questions},
-}
-QUESTION_TEXTS.update(QUESTION_TRANSLATIONS)
-QUESTION_META = {
-    question_map[text]["code"]: {
-        **question_map[text],
-        "order": question_order[text],
-    }
-    for text in questions
-}
-QUESTION_CODES = sorted(QUESTION_META, key=lambda code: QUESTION_META[code]["order"])
-
-UI_TEXTS = {
+LANGUAGES = {"nl": "Nederlands", "fr": "Français", "en": "English"}
+TEXT = {
     "nl": {
-        "app_title": "Adaptiviteit Maturiteitsscan",
-        "app_intro": "Ontdek in enkele minuten hoe jij omgaat met verandering, leren, veerkracht en innovatie.",
-        "details_step": "Stap 1 · Je gegevens",
-        "scan_step": "Stap 2 · Adaptiviteitsscan",
-        "name": "Naam",
-        "email": "E-mailadres (optioneel)",
-        "email_help": "We bewaren dit alleen zodat we je resultaat later eventueel kunnen bezorgen. Er wordt nu geen e-mail verstuurd.",
-        "role": "Functie",
-        "organisation": "Organisatie",
-        "start": "Start vragenlijst",
-        "submit": "Toon mijn resultaat",
-        "missing": "Vul alle vragen in om je resultaat te bekijken.",
-        "complete": "Alle vragen zijn ingevuld.",
-        "thanks": "Bedankt voor je deelname",
-        "profile": "Jouw persoonlijke adaptiviteit",
-        "profile_intro": "Adaptiviteit beschrijft hoe je veerkrachtig omgaat met het heden én hoe je je voorbereidt op wat komt.",
-        "core_profile": "Jouw kernprofiel",
-        "pillars": "Jouw vijf kernpijlers",
-        "interpretation": "Jouw interpretatie",
-        "adaptivity": "Je adaptiviteit",
-        "restart": "Opnieuw invullen",
-    }
+        "title":"Live groepsdashboard","subtitle":"Adaptiviteit van de groep","intro":"Volg de groepsresultaten rechtstreeks vanuit de scan. Het dashboard toont alleen gemiddelden en nooit individuele antwoorden.","access":"Toegangscode","access_help":"Vul de gedeelde toegangscode in om de groepsresultaten te bekijken.","access_wrong":"De toegangscode is niet correct.",
+        "language":"Taal","period":"Welke antwoorden wil je tonen?","session":"Sinds opening van deze dashboardsessie","hour":"Laatste uur","day":"Laatste 24 uur","all":"Volledige dataset","refresh":"Nu verversen","updated":"Laatst ververst","responses":"Deelnemers","answers":"Antwoorden","average":"Groepsgemiddelde","pillars":"De vijf kernpijlers","strongest":"Sterkste pijler","opportunity":"Grootste ontwikkelkans","no_data":"Voor deze periode zijn nog geen antwoorden beschikbaar.","privacy":"Resultaten worden als groepsgemiddelden getoond. Deel geen conclusies over individuele deelnemers.","source_error":"De Google Sheet kon niet worden gelezen. Controleer de secrets, de naam van de spreadsheet en de deelrechten.","scale":"Score op 7","live":"LIVE","organisation_filter":"Organisatie (optioneel)","all_orgs":"Alle organisaties","period_note":"Getoond venster","from":"vanaf","full":"alle beschikbare antwoorden",
+    },
+    "fr": {
+        "title":"Tableau de bord collectif en direct","subtitle":"Adaptabilité du groupe","intro":"Suivez les résultats du groupe directement depuis le scan. Le tableau de bord n’affiche que des moyennes, jamais de réponses individuelles.","access":"Code d’accès","access_help":"Saisissez le code partagé pour consulter les résultats collectifs.","access_wrong":"Le code d’accès est incorrect.",
+        "language":"Langue","period":"Quelles réponses afficher ?","session":"Depuis l’ouverture de cette session","hour":"Dernière heure","day":"Dernières 24 heures","all":"Ensemble des données","refresh":"Actualiser maintenant","updated":"Dernière actualisation","responses":"Participants","answers":"Réponses","average":"Moyenne du groupe","pillars":"Les cinq piliers clés","strongest":"Pilier le plus fort","opportunity":"Principale opportunité de développement","no_data":"Aucune réponse n’est encore disponible pour cette période.","privacy":"Les résultats sont présentés sous forme de moyennes collectives. Ne tirez pas de conclusions sur des participants individuels.","source_error":"Impossible de lire la feuille Google. Vérifiez les secrets, le nom de la feuille de calcul et les droits de partage.","scale":"Score sur 7","live":"EN DIRECT","organisation_filter":"Organisation (facultatif)","all_orgs":"Toutes les organisations","period_note":"Période affichée","from":"depuis","full":"toutes les réponses disponibles",
+    },
+    "en": {
+        "title":"Live group dashboard","subtitle":"Group adaptability","intro":"Follow group results directly from the scan. The dashboard only shows averages and never individual answers.","access":"Access code","access_help":"Enter the shared access code to view the group results.","access_wrong":"The access code is incorrect.",
+        "language":"Language","period":"Which responses should be shown?","session":"Since this dashboard session opened","hour":"Last hour","day":"Last 24 hours","all":"Full dataset","refresh":"Refresh now","updated":"Last refreshed","responses":"Participants","answers":"Answers","average":"Group average","pillars":"The five core pillars","strongest":"Strongest pillar","opportunity":"Main development opportunity","no_data":"No responses are available for this period yet.","privacy":"Results are shown as group averages. Do not draw conclusions about individual participants.","source_error":"The Google Sheet could not be read. Check the secrets, spreadsheet name and sharing permissions.","scale":"Score out of 7","live":"LIVE","organisation_filter":"Organisation (optional)","all_orgs":"All organisations","period_note":"Displayed window","from":"from","full":"all available responses",
+    },
 }
-UI_TEXTS.update(TRANSLATED_UI_TEXTS)
 
-requested_language = st.query_params.get("lang", "nl")
-if requested_language not in LANGUAGE_NAMES:
-    requested_language = "nl"
-if "language" not in st.session_state:
-    st.session_state.language = requested_language
+PILLARS = ["VA", "VZ", "LO", "VV", "CI"]
+PILLAR_TEXT = {
+    "nl": {"VA":("Veranderattitude","Hoe de groep verandering benadert en mee vormgeeft."),"VZ":("Veerkracht & zelfregulatie","Hoe de groep onder druk blijft functioneren en herstelt."),"LO":("Leermotivatie & ontwikkeling","Hoe actief de groep leert, feedback benut en groeit."),"VV":("Vooruitzien & voorbereiden","Hoe sterk de groep signalen oppikt en vooruitdenkt."),"CI":("Creativiteit & innovatie","Hoe de groep nieuwe ideeën en verbeteringen realiseert.")},
+    "fr": {"VA":("Attitude face au changement","La manière dont le groupe aborde et façonne le changement."),"VZ":("Résilience & autorégulation","La manière dont le groupe fonctionne sous pression et récupère."),"LO":("Motivation à apprendre & développement","La manière dont le groupe apprend, utilise le feedback et progresse."),"VV":("Anticipation & préparation","La capacité du groupe à capter les signaux et anticiper."),"CI":("Créativité & innovation","La manière dont le groupe développe des idées et améliorations.")},
+    "en": {"VA":("Change attitude","How the group approaches and helps shape change."),"VZ":("Resilience & self-regulation","How the group keeps functioning under pressure and recovers."),"LO":("Learning motivation & development","How actively the group learns, uses feedback and grows."),"VV":("Anticipation & preparation","How well the group picks up signals and thinks ahead."),"CI":("Creativity & innovation","How the group develops new ideas and improvements.")},
+}
 
-language_spacer, language_picker = st.columns([5, 1])
-with language_picker:
-    LANGUAGE = st.selectbox(
-        "Language · Taal · Langue",
-        options=list(LANGUAGE_NAMES),
-        format_func=LANGUAGE_NAMES.get,
-        key="language",
-        label_visibility="collapsed",
-    )
-
-if st.query_params.get("lang") != LANGUAGE:
-    st.query_params["lang"] = LANGUAGE
-T = UI_TEXTS[LANGUAGE]
-
-scale_labels = [
-    "1 - Nooit",
-    "2 - Zeer zelden",
-    "3 - Zelden",
-    "4 - Soms",
-    "5 - Regelmatig",
-    "6 - Vaak",
-    "7 - Altijd"
+SUBTITLE={"nl":"Jullie adaptief gedrag","fr":"Votre comportement adaptatif","en":"Your adaptive behaviour"}
+INTRO={"nl":"Dit dashboard toont enkel gemiddelden, geen individuele antwoorden.","fr":"Ce tableau de bord présente uniquement des moyennes, jamais de réponses individuelles.","en":"This dashboard only shows averages, never individual answers."}
+COPY={
+"nl":{"overview":"De vijf pijlers van adaptief gedrag","overview_intro":"De vijf pijlers tonen hoe deelnemers vandaag met verandering omgaan en hoe zij zich voorbereiden op wat nog komt.","stands":"Wat valt op?","largest":"Meeste individuele spreiding","smallest":"Minste individuele spreiding","radar_band":"10e–90e percentiel","group_mean":"Groepsgemiddelde","benchmark":"Gemiddelde","spread":"Individuele spreiding","benchmark_help":"Het groepsgemiddelde, geduid tegenover de externe benchmark.","spread_help":"Hoe sterk antwoorden van deelnemers onderling verschillen.","p_very_low":"Zeer laag","p_low":"Laag","p_middle":"Rond het midden","p_high":"Hoog","p_very_high":"Zeer hoog","s_low":"Lage spreiding","s_moderate":"Matige spreiding","s_high":"Hoge spreiding","s_unavailable":"Nog niet beschikbaar","spread_guide":"Objectieve duiding van spreiding (7-puntsschaal)","spread_low":"Laag: SD ≤ 0,72 · antwoorden liggen dicht bij elkaar.","spread_mid":"Matig: SD 0,73–1,32 · merkbare verschillen tussen deelnemers.","spread_high":"Hoog: SD > 1,32 · sterk uiteenlopende ervaringen.","distribution":"Verdeling over de antwoordcategorieën","distribution_intro":"De balken tonen welk aandeel deelnemers per pijler gemiddeld in elke scorecategorie valt.","maturity":"Van reactief naar proactief veranderen","maturity_intro":"De maturiteitsniveaus beschrijven welk gedrag vandaag het meest herkenbaar is wanneer verandering zich aandient. Ze vormen geen oordeel of vast label.","dominant":"Vaakst voorkomend profiel","respondents":"respondenten","progress":"Van reactief naar proactief","privacy_small":"Toon groepsresultaten bij voorkeur vanaf minstens drie deelnemers."},
+"fr":{"overview":"Les cinq piliers du comportement adaptatif","overview_intro":"Les cinq piliers montrent comment les participants abordent aujourd’hui le changement et se préparent à ce qui vient.","stands":"Que retenir ?","largest":"Plus grande dispersion individuelle","smallest":"Plus faible dispersion individuelle","radar_band":"10e–90e percentile","group_mean":"Moyenne du groupe","benchmark":"Moyenne","spread":"Dispersion individuelle","benchmark_help":"La moyenne du groupe, située par rapport à la référence externe.","spread_help":"La mesure dans laquelle les réponses diffèrent entre participants.","p_very_low":"Très faible","p_low":"Faible","p_middle":"Dans la moyenne","p_high":"Élevé","p_very_high":"Très élevé","s_low":"Faible dispersion","s_moderate":"Dispersion modérée","s_high":"Forte dispersion","s_unavailable":"Pas encore disponible","spread_guide":"Interprétation objective de la dispersion (échelle à 7 points)","spread_low":"Faible : ET ≤ 0,72 · réponses proches.","spread_mid":"Modérée : ET 0,73–1,32 · différences perceptibles.","spread_high":"Forte : ET > 1,32 · expériences très différentes.","distribution":"Répartition des catégories de réponse","distribution_intro":"Les barres montrent la part des participants dont la moyenne par pilier relève de chaque catégorie.","maturity":"Passer du changement réactif au changement proactif","maturity_intro":"Les niveaux décrivent le comportement actuellement le plus reconnaissable face au changement. Ils ne constituent ni un jugement ni une étiquette fixe.","dominant":"Profil le plus fréquent","respondents":"répondants","progress":"Du réactif au proactif","privacy_small":"Présentez de préférence les résultats collectifs à partir de trois participants."},
+"en":{"overview":"The five pillars of adaptive behaviour","overview_intro":"The five pillars show how participants currently deal with change and prepare for what comes next.","stands":"What stands out?","largest":"Greatest individual spread","smallest":"Smallest individual spread","radar_band":"10th–90th percentile","group_mean":"Group average","benchmark":"Average","spread":"Individual spread","benchmark_help":"The group average interpreted against the external benchmark.","spread_help":"How strongly participants’ answers differ from one another.","p_very_low":"Very low","p_low":"Low","p_middle":"Around the middle","p_high":"High","p_very_high":"Very high","s_low":"Low spread","s_moderate":"Moderate spread","s_high":"High spread","s_unavailable":"Not yet available","spread_guide":"Objective interpretation of spread (7-point scale)","spread_low":"Low: SD ≤ 0.72 · answers are close together.","spread_mid":"Moderate: SD 0.73–1.32 · noticeable differences.","spread_high":"High: SD > 1.32 · strongly differing experiences.","distribution":"Distribution across response categories","distribution_intro":"The bars show the share of participants whose average per pillar falls in each category.","maturity":"From reactive to proactive change","maturity_intro":"The maturity levels describe which behaviour is currently most recognisable when change occurs. They are not a judgement or fixed label.","dominant":"Most common profile","respondents":"respondents","progress":"From reactive to proactive","privacy_small":"Preferably present group results from at least three participants."}}
+MATURITY={
+"nl":[("Kritisch & terughoudend","Verandering vraagt veel energie; kritische signalen en onzekerheid staan voorop."),("Stabiel meewerkend","Deelnemers werken professioneel mee, maar nemen beperkt initiatief."),("Reactief aanpassend","Deelnemers passen zich aan wanneer verandering zich voordoet."),("Wendbaar responsief","Deelnemers schakelen snel en effectief in wisselende situaties."),("Proactief anticiperend","Deelnemers zien verandering vroeger aankomen en bereiden zich bewust voor."),("Anticiperende leer- en transformatiekracht","Deelnemers blijven leren en creëren actief nieuwe mogelijkheden.")],
+"fr":[("Critique & réservé","Le changement demande beaucoup d’énergie ; signaux critiques et incertitude dominent."),("Coopération stable","Les participants coopèrent de manière professionnelle, avec peu d’initiative."),("Adaptation réactive","Les participants s’adaptent lorsque le changement survient."),("Réactivité agile","Les participants s’ajustent rapidement et efficacement."),("Anticipation proactive","Les participants voient le changement venir et s’y préparent."),("Apprentissage anticipatif & transformation","Les participants continuent d’apprendre et créent de nouvelles possibilités.")],
+"en":[("Critical & reserved","Change requires considerable energy; critical signals and uncertainty dominate."),("Stable cooperation","Participants cooperate professionally but take limited initiative."),("Reactive adaptation","Participants adapt when change occurs."),("Agile responsiveness","Participants adjust quickly and effectively in changing situations."),("Proactive anticipation","Participants see change coming and prepare deliberately."),("Anticipatory learning & transformation","Participants keep learning and actively create new possibilities.")]
+}
+PATTERN_LEGEND={"nl":["Volle lijn = vaakst voorkomend profiel","Stippellijn = ander voorkomend niveau","Transparant = niet aanwezig"],"fr":["Ligne pleine = profil le plus fréquent","Pointillés = autre niveau présent","Transparent = niveau absent"],"en":["Solid line = most common profile","Dashed line = other level present","Transparent = level not present"]}
+LEVEL_LABEL={"nl":"NIVEAU","fr":"NIVEAU","en":"LEVEL"}
+PILLAR_ICONS={
+"VA":'<svg viewBox="0 0 64 64"><path d="M14 22a20 20 0 0 1 34-5l5 6M50 10l3 13-13-2M50 42a20 20 0 0 1-34 5l-5-6M14 54l-3-13 13 2"/></svg>',
+"VZ":'<svg viewBox="0 0 64 64"><path d="M32 7l19 8v14c0 13-8 22-19 28-11-6-19-15-19-28V15z"/><path d="m22 31 7 7 14-16"/></svg>',
+"LO":'<svg viewBox="0 0 64 64"><path d="M8 15c9-3 17-1 24 5v34c-7-6-15-8-24-5zM56 15c-9-3-17-1-24 5v34c7-6 15-8 24-5z"/></svg>',
+"VV":'<svg viewBox="0 0 64 64"><path d="M10 51 26 20l9 14 8-11 11 28M20 51h38M13 17h19M25 10l7 7-7 7"/></svg>',
+"CI":'<svg viewBox="0 0 64 64"><path d="M21 29a11 11 0 1 1 22 0c0 6-3 8-6 12H27c-3-4-6-6-6-12zM27 47h10M29 53h6M32 5v8M9 29h7M48 29h7"/></svg>'}
+MATURITY_ICONS=[
+'<svg viewBox="0 0 64 64"><path d="M47 12a24 24 0 1 1-8-3"/><path d="M25 22v20M39 22v20"/></svg>',
+'<svg viewBox="0 0 64 64"><path d="M32 7l6 4 7-1 4 6 7 3v7l4 6-4 6v7l-7 3-4 6-7-1-6 4-6-4-7 1-4-6-7-3v-7l-4-6 4-6v-7l7-3 4-6 7 1z"/><path d="m21 32 7 7 15-16"/></svg>',
+'<svg viewBox="0 0 64 64"><path d="M8 18h18M38 18h18M8 32h34M50 32h6M8 46h8M28 46h28"/><circle cx="32" cy="18" r="5"/><circle cx="46" cy="32" r="5"/><circle cx="22" cy="46" r="5"/></svg>',
+'<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="23"/><path d="m39 25-5 11-11 5 5-11z"/><circle cx="32" cy="32" r="2"/><path d="M32 6v5M32 53v5M6 32h5M53 32h5"/></svg>',
+'<svg viewBox="0 0 64 64"><path d="M32 32 50 17M13 48a26 26 0 1 1 38 0M20 42a17 17 0 1 1 24 0M27 36a8 8 0 1 1 10 0"/><circle cx="47" cy="20" r="3.5"/><path d="M10 50h44"/></svg>',
+'<svg viewBox="0 0 64 64"><path d="M32 55C24 55 20 52 20 49C20 45 26 43 33 43C42 43 48 40 48 36C48 31 40 28 30 29C19 30 13 27 13 23C13 18 23 14 36 15C49 16 56 12 56 8M25 49c4 2 11 2 16 0M20 39c8 3 20 2 27-2M14 27c10 4 27 3 37-2M10 16c12 5 31 4 43-1m40-7 6 0-1 7"/></svg>'
 ]
 
-scale_values = list(range(1, 8))
+ALIASES = {
+    "timestamp":["timestamp","tijdstip","datum","datetime"], "name":["naam","name","nom"], "email":["email","e-mail","e-mailadres"],
+    "organisation":["organisatie","organisation","organization"], "code":["code","itemcode","item_code"], "pillar":["pillar","pijler"], "score":["final_score","gecorrigeerde score","score_final","score"],
+}
 
-# ---------------------------
-# SCORING
-# ---------------------------
-def compute_scores(answers):
-    rows = []
+def now_local(): return datetime.now(ZoneInfo("Europe/Brussels")).replace(tzinfo=None)
 
-    for code, score in answers.items():
-        meta = QUESTION_META[code]
-        pillar = meta["pillar"]
-        block = meta["block"]
-        direction = meta["direction"]
+@st.cache_resource
+def worksheet():
+    scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly", "https://www.googleapis.com/auth/drive.readonly"]
+    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scopes)
+    client = gspread.authorize(creds)
+    config = st.secrets.get("dashboard", {})
+    book = client.open(config.get("spreadsheet_name", "Adaptivity Maturiteitsscan"))
+    tab = config.get("worksheet_name", "")
+    return book.worksheet(tab) if tab else book.sheet1
 
-        if direction == "neg":
-            score = 8 - score
+@st.cache_data(ttl=15, show_spinner=False)
+def load_rows(): return worksheet().get_all_records()
 
-        rows.append({
-            "pillar": pillar,
-            "block": block,
-            "score": score
-        })
+def column(df, key, fallback_position=None):
+    normalized = {str(c).strip().lower(): c for c in df.columns}
+    for alias in ALIASES[key]:
+        if alias in normalized: return normalized[alias]
+    if fallback_position is not None and len(df.columns) > fallback_position: return df.columns[fallback_position]
+    return None
 
+def prepare(rows):
     df = pd.DataFrame(rows)
-
-    # PILLARS
-    pivot = df.groupby("pillar")["score"].mean().reset_index()
-
-    all_pillars = ["VA", "VZ", "LO", "VV", "CI"]
-    pivot = (
-        pivot.set_index("pillar")
-        .reindex(all_pillars)
-        .fillna(df["score"].mean())
-        .reset_index()
-    )
-    # BLOCKS
-    block_scores = df.groupby("block")["score"].mean().reset_index()
-
-    return pivot, block_scores
-
-
-def compute_maturity_level(block_scores_df, pillar_scores_df):
-    """
-    block_scores_df: dataframe met kolommen:
-    [block, score]
-    """
-
-    scores = dict(zip(block_scores_df["block"], block_scores_df["score"]))
-
-    b1 = scores.get(1, 0)
-    b2 = scores.get(2, 0)
-    b3 = scores.get(3, 0)
-    b4 = scores.get(4, 0)
-    pillar_scores = dict(zip(pillar_scores_df["pillar"], pillar_scores_df["score"]))
-    vv = pillar_scores.get("VV", 0)
-    ci = pillar_scores.get("CI", 0)
-
-    # -------------------------
-    # BLOCK 1
-    # -------------------------
-    if b1 < 3.5:
-        return 0
-
-    # -------------------------
-    # BLOCK 2
-    # -------------------------
-    if b2 < 4.5:
-        return 1
-    elif b2 <= 5.5:
-        return 2
-    # alleen als b2 > 5.5 ga je verder
-
-    # -------------------------
-    # BLOCK 3
-    # -------------------------
-    if b3 < 4.5:
-        return 2
-    elif b3 <= 5.5:
-        return 3
-    # alleen als b3 > 5.5 ga je verder
-
-    # -------------------------
-    # BLOCK 4
-    # -------------------------
-    if b4 < 4.5:
-        return 3
-    elif b4 < 6 or vv < 5.75 or ci < 5.75:
-        return 4
-    else:
-        return 5
-
-# ---------------------------
-# FEEDBACK FORMATTING (NIEUW)
-# ---------------------------
-def format_feedback(text):
-    return (
-        text
-        .replace("### Volgende stappen:", "<br><br><b>Volgende stappen:</b><br>")
-        .replace("### Eerste kleine stap", "<br><br><b>Eerste kleine stap</b><br>")
-        .replace("- ", "• ")
-        .replace("\n", "<br>")
-    )
-
-def feedback(level):
-    if LANGUAGE in FEEDBACK_TRANSLATIONS:
-        return FEEDBACK_TRANSLATIONS[LANGUAGE].get(level, "")
-    texts = {
-        0: """
-Je hebt een duidelijke voorkeur voor vertrouwde manieren van werken en dat is heel begrijpelijk. Verandering vraagt energie, brengt onzekerheid mee en kan soms voelen alsof je grip verliest. Jouw kritische blik is daarbij ook waardevol: je voelt vaak snel aan wanneer iets nog niet klopt of onvoldoende doordacht is. Dat helpt om veranderingen niet zomaar blind te volgen.
-
-Verandering kan echter ook kansen bieden en is vaak noodzakelijk om vooruit te kunnen. Een volgende stap kan zijn om vaker te onderzoeken wat een verandering jou of je werk kan opleveren. Kleine experimenten helpen hierbij: eerst voorzichtig proberen, daarna evalueren wat het effect is. Door je bezorgdheden iets sneller bespreekbaar te maken, vergroot je ook je invloed op hoe verandering vorm krijgt.
-
-### Volgende stappen:
-- weerstand sneller benoemen en bespreekbaar maken
-- één kleine verandering bewust uitproberen
-- onderzoeken wat een verandering kan opleveren
-- minder afwachten, meer verkennen
-
-### Eerste kleine stap
-Kies één kleine verandering deze week en observeer bewust wat er gebeurt wanneer je die volgt in plaats van tegenhoudt.
-""",
-
-        1: """
-Je accepteert verandering meestal correct en professioneel. Je werkt mee wanneer dat nodig is en zorgt ervoor dat het werk blijft doorlopen. Dat is een belangrijke en vaak onderschatte basis, omdat je stabiliteit en betrouwbaarheid brengt in een veranderende omgeving. Mensen rondom jou kunnen op je rekenen.
-
-Je volgende groeistap ligt in het actiever vormgeven van verandering. Niet alleen uitvoeren wat gevraagd wordt, maar ook nadenken over hoe jij je eigen aanpak kan verbeteren of aanpassen. Door kleine initiatieven te nemen, verschuif je van “meewerken” naar “mee vormgeven”.
-
-### Volgende stappen:
-- bewust reflecteren op je eigen aanpak
-- sneller nieuwe werkwijzen uitproberen
-- vragen stellen over waarom iets verandert
-- kleine verbeteringen zelf voorstellen
-
-### Eerste kleine stap
-Vraag bij één verandering actief door hoe je je werkwijze best kan aanpassen.
-""",
-
-        2: """
-Je past je goed aan wanneer verandering zich voordoet. Je schakelt wanneer nodig, leert nieuwe situaties kennen en blijft goed functioneren onder druk. Dat toont veerkracht en leervermogen. Je hebt de houding van iemand die zegt: “als het verandert, dan vind ik mijn weg wel.”
-
-De volgende stap is om niet alleen te reageren op verandering, maar ze ook vroeger te zien aankomen. Door signalen sneller op te pikken en je vooraf voor te bereiden, vergroot je je impact en je rust in nieuwe situaties.
-
-### Volgende stappen:
-- sneller alternatieven bedenken
-- signalen van verandering vroeger oppikken
-- proactiever opleidingen of kennis zoeken
-- bewuster vooruitdenken bij nieuwe situaties
-
-### Eerste kleine stap
-Neem in één complexe situatie bewust een stap terug om meerdere opties te overwegen.
-""",
-
-        3: """
-Je schakelt flexibel tussen situaties en weet goed wat nodig is om resultaat te behalen. Je blijft meestal rustig onder druk, denkt in oplossingen en past je gedrag effectief aan. Dat maakt je een betrouwbare kracht in een dynamische omgeving.
-
-Je groeikans ligt in het nog sterker vooruitdenken in plaats van enkel goed reageren. Door patronen te herkennen en eerder te anticiperen op wat kan komen, kan je meer richting geven in plaats van enkel mee te bewegen.
-
-### Volgende stappen:
-- vaker vooruitdenken in scenario’s
-- structurele oorzaken van problemen analyseren
-- actief nieuwe vaardigheden ontwikkelen vóór ze nodig zijn
-- kansen zien in verandering, niet alleen oplossingen
-
-### Eerste kleine stap
-Kies één ontwikkeling in je werkveld en bekijk wat deze binnen 6 maanden zou kunnen veranderen aan jouw job of taken.
-""",
-
-        4: """
-Je denkt vooruit en bereidt je bewust voor op toekomstige veranderingen. Je ontwikkelt vaardigheden op voorhand, bouwt sterke netwerken en zoekt duurzame oplossingen. Je wacht niet af, maar helpt verandering mee vorm te geven. Dat toont eigenaarschap, maturiteit en strategisch inzicht.
-
-De volgende stap ligt in nog meer experimenteren zonder directe noodzaak: niet alleen voorbereiden op wat waarschijnlijk komt, maar ook leren en ontwikkelen voor wat nog onbekend is. Zo versterk je je adaptiviteit verder.
-
-### Volgende stappen:
-- experimenteren zonder onmiddellijke aanleiding
-- bewust leren buiten de huidige context
-- nieuwe mogelijkheden verkennen zonder zeker doel
-- anderen inspireren en meenemen in verandering
-
-### Eerste kleine stap
-Volg één opleiding waarvan je op voorhand nog niet weet of ze direct bruikbaar is voor je huidige taken en evalueer wat je ervan leert.
-""",
-
-        5: """
-Je beweegt niet alleen mee met verandering, je helpt ze actief creëren. Je leert continu, ook zonder directe aanleiding, en denkt in mogelijkheden eerder dan in beperkingen. Je hebt een hoge tolerantie voor onzekerheid en gebruikt verandering als motor voor groei. Daarmee ben je vaak ook een inspirerend voorbeeld voor anderen.
-
-Jouw verdere ontwikkeling ligt hier niet zozeer in “meer”, maar in verdieping: hoe kan jouw aanpak nog meer anderen versterken? Jouw grootste impact zit vaak in het begeleiden, inspireren en versterken van de omgeving rond jou.
-
-### Werkpunten voor verdere verdieping:
-- anderen coachen in verandering en groei
-- leerprocessen explicieter delen met collega’s
-- ruimte creëren voor experiment binnen het team
-- verandering op organisatieniveau helpen sturen
-
-### Eerste kleine stap
-Kies één collega of team en help hen bewust om één verandering beter te begrijpen, aan te pakken of te versnellen.
-"""
-    }
-
-    return texts.get(level, "Geen feedback beschikbaar voor dit niveau.")
-
-pillar_labels = {
-    "VA": "Veranderattitude",
-    "VZ": "Veerkracht<br>& Zelfregulatie",
-    "LO": "Leermotivatie<br>& Ontwikkeling",
-    "VV": "Vooruitzien<br>& Voorbereiden",
-    "CI": "Creativiteit<br>& Innovatie"
-}
-
-def radar_plot(pivot):
-
-    pivot = pivot.copy()
-    pivot["pillar_label"] = pivot["pillar"].map(pillar_labels)
-
-    fig = px.line_polar(
-        pivot,
-        r="score",
-        theta="pillar_label",
-        line_close=True,
-        range_r=[1, 7]
-    )
-
-    fig.update_traces(fill="toself")
-
-    fig.update_layout(
-        margin=dict(l=100, r=100, t=40, b=40),
-        polar=dict(
-            angularaxis=dict(
-                tickangle=0  # or -45 for long labels
-            )
-        )
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-pillar_data = {
-    "VA": {
-        "title": "Veranderattitude",
-        "description": (
-            "Deze pijler beschrijft hoe jij emotioneel, cognitief en gedragsmatig reageert op verandering in je werkomgeving. "
-            "Het gaat niet alleen om of je verandering accepteert, maar ook in welke mate je deze actief ondersteunt, beïnvloedt of net probeert te vermijden. "
-            "Dit varieert van weerstand en terughoudendheid tot actieve betrokkenheid en het zelf mee vormgeven van verandering."
-        ),
-         "score_meaning": {
-            "low": (
-                "Je scoort eerder laag op Veranderattitude. Dit betekent dat je verandering vaak als lastig, onzeker of bedreigend ervaart "
-                "en dat je de neiging hebt om vast te houden aan vertrouwde werkwijzen. In verandertrajecten neem je meestal een afwachtende of terughoudende houding aan "
-                "en je vermijdt of vertraagt verandering eerder dan dat je ze actief ondersteunt."
-            ),
-            "mid": (
-                "Je scoort gemiddeld op Veranderattitude. Dit betekent dat je doorgaans een neutrale tot redelijk open houding hebt tegenover verandering. "
-                "Je werkt mee wanneer verandering gevraagd of opgelegd wordt, maar je neemt zelf zelden het initiatief om verandering actief te ondersteunen of te versnellen."
-            ),
-            "good": (
-                "Je scoort eerder hoog op Veranderattitude. Dit betekent dat je meestal open en constructief staat tegenover verandering en deze actief ondersteunt wanneer ze zich voordoet. "
-                "Je denkt mee over hoe verandering kan worden uitgevoerd en draagt regelmatig bij aan een vlotte implementatie."
-            ),
-            "high": (
-                "Je scoort zeer hoog op Veranderattitude. Dit betekent dat je verandering niet alleen accepteert, maar vaak ook actief initieert en mee vormgeeft. "
-                "Je neemt regelmatig een trekkersrol op in veranderprocessen en probeert verandering te stimuleren, versnellen of verbeteren."
-            )
-        }
-    },
- "VZ": {
-        "title": "Veerkracht & Zelfregulatie",
-        "description": (
-            "Deze pijler beschrijft hoe goed je functioneert onder druk, in veranderende omstandigheden en bij tegenslagen. "
-            "Het gaat zowel over emotionele veerkracht (hoe je stress en druk verwerkt) als over gedragsmatige flexibiliteit (hoe snel je je aanpast in concrete situaties)."
-        ),
-        "score_meaning": {
-            "low": (
-                "Je scoort eerder laag op Veerkracht & Zelfregulatie. Dit betekent dat je verandering, druk of onverwachte situaties vaak als belastend ervaart "
-                "en dat het je tijd kost om je opnieuw aan te passen. Stress kan een duidelijke impact hebben op je functioneren."
-            ),
-            "mid": (
-                "Je scoort gemiddeld op Veerkracht & Zelfregulatie. Dit betekent dat je je in de meeste situaties kan aanpassen, "
-                "maar dat je soms bewust tijd, structuur of ondersteuning nodig hebt om goed te blijven functioneren onder druk."
-            ),
-            "good": (
-                "Je scoort eerder hoog op Veerkracht & Zelfregulatie. Dit betekent dat je doorgaans stabiel blijft functioneren onder druk "
-                "en je je vlot kan aanpassen aan veranderende omstandigheden en verwachtingen."
-            ),
-            "high": (
-                "Je scoort zeer hoog op Veerkracht & Zelfregulatie. Dit betekent dat je erg goed kan omgaan met druk en verandering, "
-                "en dat je snel en flexibel schakelt zonder dat dit je functioneren of emotionele stabiliteit negatief beïnvloedt."
-            )
-        }
-    },
-
-    "LO": {
-        "title": "Leermotivatie & Ontwikkeling",
-        "description": (
-            "Deze pijler beschrijft in welke mate je actief investeert in leren en persoonlijke ontwikkeling. "
-            "Dit omvat zowel formele leeractiviteiten zoals opleidingen als informele ontwikkeling zoals feedback gebruiken, zelfstudie en leren in de praktijk."
-        ),
-        "score_meaning": {
-            "low": (
-                "Je scoort eerder laag op Leermotivatie & Ontwikkeling. Dit betekent dat je vooral leert wanneer het noodzakelijk is voor je werk "
-                "en dat leren eerder een reactieve dan een proactieve activiteit is."
-            ),
-            "mid": (
-                "Je scoort gemiddeld op Leermotivatie & Ontwikkeling. Dit betekent dat je regelmatig gebruikmaakt van leerkansen wanneer ze zich voordoen, "
-                "maar dat je ontwikkeling niet altijd actief of systematisch aanstuurt."
-            ),
-            "good": (
-                "Je scoort eerder hoog op Leermotivatie & Ontwikkeling. Dit betekent dat je actief bezig bent met leren en je ontwikkeling "
-                "en dat je regelmatig bewust zoekt naar mogelijkheden om je vaardigheden te verbeteren."
-            ),
-            "high": (
-                "Je scoort zeer hoog op Leermotivatie & Ontwikkeling. Dit betekent dat je sterk intrinsiek gemotiveerd bent om te leren "
-                "en voortdurend actief op zoek gaat naar nieuwe kansen om jezelf professioneel en persoonlijk te ontwikkelen."
-            )
-        }
-    },
-
-    "VV": {
-        "title": "Vooruitzien & Voorbereiden",
-        "description": (
-            "Deze pijler beschrijft hoe sterk je gericht bent op de toekomst, hoe goed je trends en ontwikkelingen opvolgt "
-            "en in welke mate je je systematisch voorbereidt op mogelijke veranderingen en uitdagingen."
-        ),
-        "score_meaning": {
-            "low": (
-                "Je scoort eerder laag op Vooruitzien & Voorbereiden. Dit betekent dat je vooral focust op de huidige situatie "
-                "en meestal reageert op problemen wanneer ze zich voordoen, eerder dan ze vooraf te anticiperen."
-            ),
-            "mid": (
-                "Je scoort gemiddeld op Vooruitzien & Voorbereiden. Dit betekent dat je soms vooruitdenkt en rekening houdt met mogelijke veranderingen, "
-                "maar dat dit niet altijd structureel of systematisch gebeurt."
-            ),
-            "good": (
-                "Je scoort eerder hoog op Vooruitzien & Voorbereiden. Dit betekent dat je regelmatig vooruitdenkt en je bewust voorbereidt op toekomstige ontwikkelingen en mogelijke risico’s."
-            ),
-            "high": (
-                "Je scoort zeer hoog op Vooruitzien & Voorbereiden. Dit betekent dat je sterk proactief werkt met scenario’s, trends en analyses "
-                "en dat je structureel anticipeert op toekomstige veranderingen en uitdagingen."
-            )
-        }
-    },
-
-    "CI": {
-        "title": "Creativiteit & Innovatie",
-        "description": (
-            "Deze pijler beschrijft in welke mate je actief nieuwe ideeën, werkwijzen en oplossingen ontwikkelt en implementeert. "
-            "Het gaat zowel om creatief denken als om het daadwerkelijk realiseren van verbeteringen en vernieuwing in je werkcontext."
-        ),
-        "score_meaning": {
-            "low": (
-                "Je scoort eerder laag op Creativiteit & Innovatie. Dit betekent dat je vooral werkt volgens bestaande methodes "
-                "en weinig initiatief neemt om dingen te verbeteren of te vernieuwen."
-            ),
-            "mid": (
-                "Je scoort gemiddeld op Creativiteit & Innovatie. Dit betekent dat je soms meedenkt over verbeteringen "
-                "en af en toe ideeën aanbrengt, maar dat je niet structureel vernieuwend bezig bent."
-            ),
-            "good": (
-                "Je scoort eerder hoog op Creativiteit & Innovatie. Dit betekent dat je regelmatig initiatief neemt om processen, werkwijzen of ideeën te verbeteren "
-                "en dat je actief bijdraagt aan vernieuwing in je werkomgeving."
-            ),
-            "high": (
-                "Je scoort zeer hoog op Creativiteit & Innovatie. Dit betekent dat je sterk innovatief ingesteld bent en actief nieuwe ideeën ontwikkelt én realiseert "
-                "om je werk en organisatie te verbeteren of te vernieuwen."
-            )
-        }
-    }
-}
-
-if LANGUAGE in PILLAR_TRANSLATIONS:
-    pillar_data = PILLAR_TRANSLATIONS[LANGUAGE]
-
-pillar_labels = {code: data["title"] for code, data in pillar_data.items()}
-
-PERCENTILE_DATA = {
-    "VA": [(4.56, 2.50), (4.78, 5.00), (4.89, 10.00), (5.00, 20.00), (5.11, 22.50), (5.22, 40.00), (5.44, 42.50), (5.56, 47.50), (5.67, 62.50), (5.78, 65.00), (5.89, 72.50), (6.00, 80.00), (6.11, 87.50), (6.22, 97.50), (6.67, 100.00)],
-    "VZ": [(2.40, 0.66), (2.60, 3.29), (2.80, 5.92), (3.00, 8.55), (3.20, 12.50), (3.40, 16.45), (3.60, 21.71), (3.80, 37.50), (4.00, 48.03), (4.20, 57.89), (4.40, 67.11), (4.60, 72.37), (4.80, 75.00), (5.00, 75.66), (5.20, 77.63), (5.40, 80.92), (5.60, 82.24), (5.80, 88.16), (6.00, 92.11), (6.20, 94.74), (6.40, 98.68), (6.60, 99.34), (6.80, 100.00)],
-    "LO": [(2.25, 0.66), (2.50, 1.97), (2.75, 3.29), (3.00, 3.95), (3.25, 8.55), (3.50, 11.84), (3.75, 15.13), (4.00, 19.74), (4.25, 28.29), (4.50, 38.16), (4.75, 50.66), (5.00, 62.50), (5.25, 71.71), (5.50, 78.95), (5.75, 87.50), (6.00, 95.39), (6.25, 96.71), (6.50, 98.03), (6.75, 100.00)],
-    "VV": [(4.00, 2.50), (4.12, 5.00), (4.25, 15.00), (4.38, 17.50), (4.50, 20.00), (4.62, 22.50), (4.75, 25.00), (4.88, 27.50), (5.00, 37.50), (5.12, 45.00), (5.25, 47.50), (5.38, 50.00), (5.50, 67.50), (5.71, 70.00), (5.75, 75.00), (5.88, 82.50), (6.00, 87.50), (6.25, 97.50), (6.50, 100.00)],
-    "CI": [(3.60, 5.00), (3.80, 7.50), (4.00, 10.00), (4.20, 15.00), (4.40, 22.50), (4.80, 32.50), (5.00, 45.00), (5.20, 57.50), (5.60, 65.00), (5.80, 77.50), (6.00, 85.00), (6.20, 92.50), (6.40, 95.00), (6.60, 97.50), (7.00, 100.00)],
-}
-
-
-def get_percentile(pillar_code, score):
-    """Interpoleer de score lineair binnen de externe normgroep."""
-    values = PERCENTILE_DATA.get(pillar_code, [])
-    if not values:
-        return None
-    if score < values[0][0]:
-        return 0.0
-    if score >= values[-1][0]:
-        return 100.0
-    for index in range(1, len(values)):
-        lower_score, lower_percentile = values[index - 1]
-        upper_score, upper_percentile = values[index]
-        if score <= upper_score:
-            position = (score - lower_score) / (upper_score - lower_score)
-            return lower_percentile + position * (upper_percentile - lower_percentile)
-    return 100.0
-
-
-def percentile_label(percentile):
-    if percentile is None:
-        return T["no_norm"]
-    if percentile < 10:
-        return T["percentile_very_low"]
-    if percentile < 30:
-        return T["percentile_low"]
-    if percentile <= 70:
-        return T["percentile_middle"]
-    if percentile <= 90:
-        return T["percentile_high"]
-    return T["percentile_very_high"]
-
-
-def short_summary(level):
-    if LANGUAGE in SUMMARY_TRANSLATIONS:
-        return SUMMARY_TRANSLATIONS[LANGUAGE].get(level, "")
-    summaries = {
-        0: "Je adaptiviteit staat nog aan het begin van haar ontwikkeling.",
-        1: "Je werkt correct mee met verandering wanneer dat nodig is.",
-        2: "Je past je goed aan wanneer verandering zich voordoet.",
-        3: "Je schakelt flexibel en oplossingsgericht in veranderende situaties.",
-        4: "Je denkt vooruit en bereidt je bewust voor op toekomstige verandering.",
-        5: "Je creëert actief verandering en helpt anderen daarin mee te groeien.",
-    }
-    return summaries.get(level, "")
-
-
-PILLAR_ICONS = {
-    "VA": '<svg viewBox="0 0 64 64"><path d="M18 17a19 19 0 0 1 28 5"/><path d="M46 14v10H36"/><path d="M46 47a19 19 0 0 1-28-5"/><path d="M18 50V40h10"/></svg>',
-    "VZ": '<svg viewBox="0 0 64 64"><path d="M32 8 50 15v14c0 12-8 21-18 27-10-6-18-15-18-27V15z"/><path d="m23 31 6 6 12-14"/></svg>',
-    "LO": '<svg viewBox="0 0 64 64"><path d="M10 16c8-3 15-1 22 4v30c-7-5-14-7-22-4z"/><path d="M54 16c-8-3-15-1-22 4v30c7-5 14-7 22-4z"/><path d="M32 20v30"/></svg>',
-    "VV": '<svg viewBox="0 0 64 64"><path d="m12 25 29-10 4 9-29 10z"/><path d="m42 24 10 7M27 32 18 54M35 29 45 54"/></svg>',
-    "CI": '<svg viewBox="0 0 64 64"><path d="M21 28a11 11 0 1 1 22 0c0 6-3 8-6 12H27c-3-4-6-6-6-12z"/><path d="M27 45h10M29 50h6M32 5v7M10 28H3M61 28h-7"/></svg>',
-}
-
-PILLAR_SHORT_DESCRIPTIONS = SHORT_DESCRIPTIONS[LANGUAGE]
-
-
-def get_score_explanation(score, meanings):
-    if score <= 2:
-        return meanings["low"]
-    elif score <= 4:
-        return meanings["mid"]
-    elif score == 5:
-        return meanings["good"]
-    else:
-        return meanings["high"]
-
-st.markdown("""
-<style>
-:root {
-    --primary: #0f566b;
-    --blue: #2aa5ca;
-    --yellow: #ffc271;
-    --light-blue: #eef8fb;
-    --text: #17313b;
-    --muted: #667985;
-    --line: #cfe1e7;
-}
-html, body, [data-testid="stAppViewContainer"] {
-    scroll-behavior: smooth;
-    color: var(--text);
-}
-[data-testid="stAppViewContainer"] {
-    background: linear-gradient(180deg, #f5fbfd 0, #ffffff 300px);
-}
-.block-container {
-    max-width: 1180px;
-    /* Houd de eerste widget volledig onder Streamlits vaste bovenbalk. */
-    padding-top: 5rem;
-    padding-bottom: 4rem;
-}
-h1, h2, h3 { color: var(--primary) !important; }
-.app-header {
-    padding: 1.4rem 1.6rem;
-    margin-bottom: 1.4rem;
-    border-radius: 0 42px 42px 0;
-    background: var(--primary);
-    color: white;
-}
-.app-header h1 { color: white !important; margin: 0; font-size: 2.2rem; }
-.app-header p { margin: .45rem 0 0; color: white; max-width: 760px; }
-.section-pill {
-    display: inline-block;
-    margin-bottom: .55rem;
-    padding: .28rem .75rem;
-    border-radius: 999px;
-    background: var(--primary);
-    color: white;
-    font-size: .78rem;
-    font-weight: 800;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-}
-[data-testid="stForm"], [data-testid="stVerticalBlockBorderWrapper"] {
-    border-color: var(--line) !important;
-    border-radius: 16px !important;
-}
-.pillar-grid {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 1rem;
-    align-items: stretch;
-}
-.pillar-card {
-    grid-column: span 2;
-    min-height: 100%;
-    padding: 1.1rem;
-    border: 1px solid var(--line);
-    border: 1.5px solid var(--primary);
-    border-radius: 16px;
-    background: white;
-    box-shadow: 0 8px 22px rgba(15, 86, 107, .07);
-    display: flex;
-    flex-direction: column;
-}
-.pillar-card:nth-child(4) { grid-column: 2 / span 2; }
-.pillar-card:nth-child(5) { grid-column: 4 / span 2; }
-.pillar-header { display:grid; grid-template-columns:48px 1fr; gap:.75rem; align-items:start; }
-.pillar-icon {
-    width:46px; height:46px; border-radius:50%; background:var(--primary); color:white;
-    display:grid; place-items:center; flex:none;
-}
-.pillar-icon svg { width:68%; height:68%; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
-.pillar-card h3 { font-size: 1.04rem; line-height:1.18; margin:0 0 .4rem; }
-.pillar-card p { font-size: .88rem; line-height:1.42; margin:0; }
-.score-row { display:flex; align-items:center; gap:.75rem; margin:.9rem 0; }
-.score-track { flex:1; height:9px; border-radius:999px; background:#e5f0f3; overflow:hidden; }
-.score-fill { height:100%; border-radius:999px; background:linear-gradient(90deg, var(--blue), var(--primary)); }
-.score-value { color:var(--primary); font-weight:800; white-space:nowrap; }
-.percentile-badge { display:inline-grid; grid-template-columns:auto auto; gap:.1rem .45rem; align-items:center; width:max-content; padding:.4rem .65rem; border-radius:10px; background:#fff7eb; color:var(--primary); margin-bottom:.75rem; }
-.percentile-badge b { font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; }
-.percentile-badge strong { font-size:1rem; }
-.percentile-badge small { grid-column:1 / -1; color:var(--muted); font-weight:700; }
-.interpretation-box { padding:.8rem; border-radius:10px; background:var(--light-blue); margin-top:auto; }
-.interpretation-box strong { color:var(--primary); }
-.profile-summary-card { padding:1.15rem; border:1px solid var(--line); border-left:5px solid var(--primary); border-radius:16px; background:var(--light-blue); min-height:100%; }
-.profile-summary-card h3 { margin-top:0; }
-.summary-stat { padding:.7rem 0; border-bottom:1px solid rgba(15,86,107,.16); }
-.summary-stat:last-of-type { border-bottom:0; }
-.summary-stat b { color:var(--primary); }
-.summary-stat strong { display:block; margin-top:.15rem; font-size:1.02rem; }
-.summary-copy { margin-top:.85rem; padding:.75rem; border-radius:10px; background:white; color:var(--text); }
-div[data-testid="stRadio"] label p { font-size: .86rem; }
-@media (min-width: 900px) {
-    div[data-testid="stRadio"] div[role="radiogroup"] {
-        flex-wrap: nowrap;
-        gap: .55rem;
-    }
-}
-.stButton > button {
-    border: 0;
-    border-radius: 999px;
-    background: var(--primary);
-    color: white;
-    font-weight: 700;
-    padding-left: 1.25rem;
-    padding-right: 1.25rem;
-}
-.stButton > button:hover { background:#0a4455; color:white; }
-@media (max-width: 700px) {
-    .block-container { padding: 4.5rem 1rem 3rem; }
-    .app-header { border-radius: 0 28px 28px 0; margin-left:-1rem; }
-    .app-header h1 { font-size:1.65rem; }
-    .pillar-grid { grid-template-columns:1fr; }
-    .pillar-card, .pillar-card:nth-child(4), .pillar-card:nth-child(5) { grid-column:1; }
-}
-@media (min-width: 701px) and (max-width: 980px) {
-    .pillar-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
-    .pillar-card, .pillar-card:nth-child(4), .pillar-card:nth-child(5) { grid-column:auto; }
-    .pillar-card:last-child { grid-column:1 / -1; }
-}
-</style>
-""", unsafe_allow_html=True)
-
-header_left, header_right = st.columns([5, 1.35], vertical_alignment="center")
-with header_left:
-    st.markdown(
-        f'<div class="app-header"><h1>{T["app_title"]}</h1><p>{T["app_intro"]}</p></div>',
-        unsafe_allow_html=True,
-    )
-with header_right:
-    logo_left, logo_right = st.columns(2, vertical_alignment="center")
-    with logo_left:
-        st.image("assets/logo Coliberate.png", use_container_width=True)
-    with logo_right:
-        st.image("assets/logo KULtivating.webp", use_container_width=True)
-
-# ---------------------------
-# STEP 1
-# ---------------------------
-if st.session_state.step == 1:
-    st.markdown(f'<span class="section-pill">{T["details_step"]}</span>', unsafe_allow_html=True)
-    st.subheader(T["details_title"])
-
-    naam = st.text_input(T["name"])
-    email = st.text_input(T["email"], help=T["email_help"], placeholder="name@example.com")
-    functie = st.text_input(T["role"])
-    organisatie = st.text_input(T["organisation"])
-    st.caption(T["email_help"])
-
-    if st.button(T["start"]):
-        st.session_state.naam = naam
-        st.session_state.email = email
-        st.session_state.functie = functie
-        st.session_state.organisatie = organisatie
-
-        st.session_state.step = 2
-        st.rerun()
-
-
-# ---------------------------
-# STEP 2
-# ---------------------------
-elif st.session_state.step == 2:
-
-    st.markdown(f'<span class="section-pill">{T["scan_step"]}</span>', unsafe_allow_html=True)
-    st.subheader(T["scan_title"])
-
-    answers = st.session_state.answers
-
-    # ---------------------------
-    # SCALE MAP
-    # ---------------------------
-    # ---------------------------
-    # QUESTIONS
-    # ---------------------------
-    for code in QUESTION_CODES:
-        q = QUESTION_TEXTS[LANGUAGE][code]
-        with st.container():
-            # Geef de zeven antwoordopties voldoende ruimte om op één regel te blijven.
-            col_q, col_a = st.columns([4, 8], gap="large")
-
-            with col_q:
-                st.markdown(f"**{q}**")
-
-            with col_a:
-                selected = st.radio(
-                    label="",
-                    options=list(range(1, 8)),
-                    format_func=lambda value: T["scale"][value - 1],
-                    horizontal=True,
-                    key=f"question_{code}",
-                    index=None,
-                    label_visibility="collapsed"
-                )
-
-                # 🔴 BELANGRIJK: expliciet opslaan
-                if selected:
-                    answers[code] = selected
-
-        st.markdown(
-            "<hr style='margin:8px 0; opacity:0.6;'>",
-            unsafe_allow_html=True
-        )
-
-    # ---------------------------
-    # COMPLETENESS CHECK
-    # ---------------------------
-    missing = [code for code in QUESTION_CODES if code not in answers]
-    if missing:
-        st.warning(T["missing"])
-    else:
-        st.success(T["complete"])
-
-    # ---------------------------
-    # SUBMIT
-    # ---------------------------
-    if st.button(T["submit"], disabled=bool(missing)):
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        language_column = ensure_language_column(sheet)
-
-        rows_to_add = []
-
-        for code, score in answers.items():
-            meta = QUESTION_META[code]
-            q = QUESTION_TEXTS[LANGUAGE][code]
-
-            raw_score = score
-            final_score = 8 - score if meta["direction"] == "neg" else score
-
-            storage_row = [
-                timestamp,
-                st.session_state.naam,
-                st.session_state.email,
-                st.session_state.functie,
-                st.session_state.organisatie,
-                meta["code"],
-                meta["pillar"],
-                meta["direction"],
-                raw_score,
-                final_score,
-                q
-            ]
-            if language_column <= len(storage_row) + 1:
-                storage_row.insert(language_column - 1, LANGUAGE)
-            else:
-                storage_row.extend([""] * (language_column - len(storage_row) - 1))
-                storage_row.append(LANGUAGE)
-            rows_to_add.append(storage_row)
-
-        sheet.append_rows(rows_to_add)
-
-        st.session_state.step = 3
-        st.session_state.scroll_top = True
-        st.rerun()
-
-# ---------------------------
-# STEP 3 - DEBUG
-# ---------------------------
-    # ---------------------------
-    # DEBUG: BLOCK SCORE BREAKDOWN
-    # ---------------------------
-  #  st.subheader("🔎 Debug: Block scoring details")
-
- #   debug_rows = []
-
-  #  for q, score in st.session_state.answers.items():
-  #      meta = question_map[q]
-
-   #     raw_score = score
-   #     final_score = 8 - score if meta["direction"] == "neg" else score
-
- #       debug_rows.append({
-   #         "Vraag": q,
-    #        "Block": meta["block"],
-     #       "Pillar": meta["pillar"],
-      #      "Direction": meta["direction"],
-       #     "Raw score": raw_score,
-       #     "Final score (na reverse)": final_score,
-       #     "Code": meta["code"]
-      #  })
-
-  #  debug_df = pd.DataFrame(debug_rows)
-
-  #  with st.expander("Bekijk alle individuele item-scores per block"):
-  #      st.dataframe(debug_df, use_container_width=True)
-
-    # ---------------------------
-    # BLOCK SAMENVATTING
-    # ---------------------------
- #   st.markdown("### 📊 Block gemiddelden")
-
- #   st.dataframe(
-  #      block_scores.sort_values("block"),
-  #      use_container_width=True
-  #  )
-
-# ---------------------------
-# STEP 3
-# ---------------------------
-elif st.session_state.step == 3:
-
-    st.markdown('<div id="top"></div>', unsafe_allow_html=True)
-
-    # scroll to top
-    components.html(
-        """
-        <script>
-            setTimeout(() => {
-                const el = window.parent.document.getElementById("top");
-                if (el) {
-                    el.scrollIntoView({ behavior: "smooth", block: "start" });
-                }
-            }, 200);
-        </script>
-        """,
-        height=0
-    )
-
-    # ---------------------------
-    # SCORES (ALTIJD BINNEN STEP 3)
-    # ---------------------------
-    pivot, block_scores = compute_scores(st.session_state.answers)
-    level = compute_maturity_level(block_scores, pivot)
-
-    # ---------------------------
-    # LAYOUT
-    # ---------------------------
-    st.markdown(f'<span class="section-pill">{T["profile"]}</span>', unsafe_allow_html=True)
-    st.title(T["thanks"])
-    st.markdown(f"### {T['profile']}")
-    st.write(T["profile_intro"])
-
-    profile_rows = []
-    for _, row in pivot.iterrows():
-        title = pillar_data[row["pillar"]]["title"]
-        score = float(row["score"])
-        percentile = get_percentile(row["pillar"], score)
-        profile_rows.append({
-            "code": row["pillar"],
-            "title": title,
-            "score": score,
-            "percentile": percentile,
-            "percentile_label": percentile_label(percentile),
-        })
-    strongest = max(profile_rows, key=lambda item: item["score"])
-    weakest = min(profile_rows, key=lambda item: item["score"])
-
-    radar_column, summary_column = st.columns([1.2, .8], gap="large", vertical_alignment="top")
-    with radar_column:
-        st.subheader(T["core_profile"])
-        radar_plot(pivot)
-    with summary_column:
-        summary_html = f"""
-        <article class="profile-summary-card">
-            <h3>{T['what_stands_out']}</h3>
-            <div class="summary-stat">
-                <b>{T['strongest']}</b>
-                <strong>{strongest['title']}: {strongest['score']:.1f} / 7</strong>
-                <small>P{strongest['percentile']:.0f} · {strongest['percentile_label']}</small>
-            </div>
-            <div class="summary-stat">
-                <b>{T['development']}</b>
-                <strong>{weakest['title']}: {weakest['score']:.1f} / 7</strong>
-                <small>P{weakest['percentile']:.0f} · {weakest['percentile_label']}</small>
-            </div>
-            <p class="summary-copy">{short_summary(level)}</p>
-        </article>
-        """
-        st.markdown(summary_html, unsafe_allow_html=True)
-
-    st.markdown(f"## {T['pillars']}")
-    cards = []
-    for _, row in pivot.iterrows():
-        pillar = row["pillar"]
-        raw_score = float(row["score"])
-        score = round(raw_score, 1)
-        title = pillar_data[pillar]["title"]
-        description = PILLAR_SHORT_DESCRIPTIONS[pillar]
-        explanation = get_score_explanation(round(score), pillar_data[pillar]["score_meaning"])
-        score_percentage = max(0, min(100, (raw_score / 7) * 100))
-        percentile = get_percentile(pillar, raw_score)
-        percentile_text = percentile_label(percentile)
-
-        # Zonder regeleindes: anders kan Markdown ingesprongen HTML na kaart 1
-        # als een codeblok tonen in plaats van als onderdeel van hetzelfde grid.
-        card_html = (
-            '<article class="pillar-card">'
-            '<header class="pillar-header">'
-            f'<span class="pillar-icon">{PILLAR_ICONS[pillar]}</span>'
-            f'<div><h3>{title}</h3><p>{description}</p></div>'
-            '</header>'
-            '<div class="score-row">'
-            f'<div class="score-track"><div class="score-fill" style="width:{score_percentage:.1f}%"></div></div>'
-            f'<span class="score-value">{score} / 7</span>'
-            '</div>'
-            f'<span class="percentile-badge" title="{T["percentile_tooltip"].format(p=f"{percentile:.0f}")}">'
-            f'<b>{T["percentile"]}</b><strong>P{percentile:.0f}</strong><small>{percentile_text}</small>'
-            '</span>'
-            '<div class="interpretation-box">'
-            f'<strong>{T["interpretation"]}</strong><p>{explanation}</p>'
-            '</div>'
-            '</article>'
-        )
-        cards.append(card_html)
-    st.markdown(f'<div class="pillar-grid">{"".join(cards)}</div>', unsafe_allow_html=True)
-    st.caption(T["percentile_guide"])
-
-    # ---------------------------
-    # EXTRA FEEDBACK ONDERAAN
-    # ---------------------------
-    st.subheader(T["adaptivity"])
-    st.markdown(feedback(level))
-    st.markdown("---")
-
-    # ---------------------------
-    # RESET
-    # ---------------------------
-    if st.button(T["restart"]):
-        st.session_state.step = 1
-        st.session_state.answers = {}
-        st.rerun()
+    if df.empty: return df
+    cols = {"timestamp":column(df,"timestamp",0),"name":column(df,"name",1),"email":column(df,"email",2),"organisation":column(df,"organisation",4),"code":column(df,"code",5),"pillar":column(df,"pillar",6),"score":column(df,"score",9)}
+    if not cols["timestamp"] or not cols["pillar"] or not cols["score"]: raise ValueError("Required columns missing")
+    out = pd.DataFrame({k: df[v] if v is not None else "" for k,v in cols.items()})
+    out["timestamp"] = pd.to_datetime(out["timestamp"], errors="coerce")
+    out["score"] = pd.to_numeric(out["score"], errors="coerce")
+    out["pillar"] = out["pillar"].astype(str).str.strip()
+    out["code"] = out["code"].astype(str).str.strip()
+    out["respondent"] = out["timestamp"].astype(str) + "|" + out["name"].astype(str) + "|" + out["email"].astype(str)
+    return out.dropna(subset=["timestamp","score"])
+
+st.markdown("""<style>
+:root{--primary:#0f566b;--blue:#2aa5ca;--yellow:#ffc271;--light:#eef8fb;--cream:#fff7eb;--line:#cfe1e7;--text:#17313b}
+.block-container{max-width:1220px;padding-top:2.2rem;padding-bottom:4rem}.hero{padding:1.6rem 1.8rem;border-radius:0 44px 44px 0;background:#0f566b;color:white;margin:0 0 1.2rem}.hero h1{margin:0;color:white;font-size:2.25rem}.hero h2{margin:.25rem 0;color:#ffc271;font-size:1.25rem}.hero p{max-width:850px;margin:.6rem 0 0}.live{display:inline-block;padding:.25rem .65rem;border-radius:99px;background:#cf256c;color:white;font-weight:800;font-size:.72rem;letter-spacing:.08em}.metric-row{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin:1rem 0}.metric{padding:1rem 1.1rem;border-left:5px solid #2aa5ca;border-radius:14px;background:#eef8fb}.metric b{display:block;font-size:.78rem}.metric strong{font-size:1.8rem;color:#0f566b}.cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:.85rem}.card{padding:1rem;border:1.5px solid #0f566b;border-radius:16px;background:white;display:flex;flex-direction:column;min-height:275px}.card h3{font-size:1rem;color:#0f566b;margin:.2rem 0 .5rem}.card p{font-size:.82rem;line-height:1.4}.score{font-size:1.45rem;font-weight:800;color:#0f566b;margin-top:auto}.track{height:9px;background:#e3eff2;border-radius:99px;overflow:hidden;margin:.55rem 0}.track i{display:block;height:100%;background:linear-gradient(90deg,#2aa5ca,#0f566b)}.insight{padding:1rem;border-radius:14px;background:#fff7eb;border-left:5px solid #ffc271}.logos{display:flex;justify-content:flex-end;align-items:center;gap:1rem}.logos img{max-height:42px;max-width:130px}.privacy{margin-top:1rem;color:#667985;font-size:.8rem}@media(max-width:900px){.cards{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.cards,.metric-row{grid-template-columns:1fr}.hero{margin-left:-1rem}.card{min-height:0}}
+</style>""", unsafe_allow_html=True)
+st.markdown("""<style>
+.metric-row{grid-template-columns:repeat(2,1fr)}.metric .badge{display:inline-flex;margin:.45rem 0 0;padding:.35rem .6rem;border-radius:9px;background:#fff7eb;color:#0f566b;font-size:.78rem;font-weight:800}.section-lead{padding:.8rem 1rem;margin:.5rem 0 1rem;border-left:5px solid #0f566b;border-radius:12px;background:#eef8fb}.overview-grid{display:grid;grid-template-columns:1.3fr .7fr;gap:1rem;align-items:stretch}.stands{padding:1rem 1.15rem;border-radius:16px;background:#eef8fb;border-left:6px solid #0f566b}.stands h3{margin-top:0}.stands ul{padding-left:1.1rem}.stands li{margin:.55rem 0}.spread-guide,.badge-guide{display:grid;grid-template-columns:repeat(3,1fr);gap:.7rem;margin:1rem 0;padding:.8rem 1rem;border:1px solid #cfe1e7;border-radius:13px;background:#f7fbfc;font-size:.78rem}.badge-guide{grid-template-columns:repeat(2,1fr)}.behaviour-cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1rem}.behaviour-card{grid-column:span 2;padding:1rem;border:1.5px solid #0f566b;border-radius:16px;background:#fff;display:flex;flex-direction:column;min-height:300px}.behaviour-card:nth-child(4){grid-column:2/span 2}.behaviour-head{display:grid;grid-template-columns:48px 1fr;gap:.75rem;min-height:112px}.pillar-icon{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:#0f566b;color:white}.pillar-icon svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.behaviour-card h3{margin:.1rem 0 .35rem;color:#0f566b;font-size:1rem}.behaviour-card p{font-size:.78rem;line-height:1.35}.card-score{display:flex;align-items:center;gap:.6rem;margin:.65rem 0}.card-score .track{flex:1}.badges{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin-top:.45rem}.status{padding:.45rem .55rem;border-radius:9px;font-size:.7rem;line-height:1.25}.status b{display:block}.status.mean{background:#fff7eb}.status.spread-low{background:#eaf6f0;color:#247c5c}.status.spread-moderate{background:#fff7eb;color:#8b641d}.status.spread-high{background:#fff0f3;color:#b33b55}.chart-shell{padding:.8rem;border:1.5px solid #cfe1e7;border-radius:18px;background:white}.maturity-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:.7rem;align-items:end;margin:1.2rem 0}.maturity-card{--level:#2aa5ca;min-height:var(--height);padding:.8rem;border:2px solid transparent;border-radius:26px 26px 14px 14px;background:linear-gradient(180deg,#fff,var(--soft));display:flex;flex-direction:column;text-align:center}.maturity-card.dominant-stage{border:4px solid var(--level);box-shadow:0 8px 24px rgba(15,86,107,.14)}.maturity-card.present-stage{border:3px dashed var(--level)}.maturity-card.absent-stage{opacity:.42;border:1px solid color-mix(in srgb,var(--level) 30%,white);background:#fbfcfd}.maturity-card .circle{width:68px;height:68px;margin:-2.1rem auto .6rem;border:6px solid var(--level);border-radius:50%;background:white;display:grid;place-items:center;color:var(--level)}.maturity-card .circle svg{width:42px;height:42px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.maturity-card small{font-weight:800;color:var(--level)}.maturity-card h3{font-size:.86rem;color:var(--level);min-height:3.2rem}.maturity-card p{font-size:.7rem;line-height:1.35}.maturity-count{margin-top:auto;padding-top:.7rem;border-top:1px solid var(--level);font-size:.72rem}.maturity-count b{font-size:1.45rem}.share-track{height:10px;margin:.5rem 0 .25rem;border-radius:99px;background:rgba(255,255,255,.8);border:1px solid color-mix(in srgb,var(--level) 30%,white);overflow:hidden}.share-track i{display:block;height:100%;background:var(--level)}.pattern-legend{display:flex;justify-content:center;flex-wrap:wrap;gap:1rem;margin:.8rem 0 1.7rem;font-size:.75rem}.pattern-legend span{display:inline-flex;align-items:center;gap:.4rem}.pattern-legend i{display:inline-block;width:30px;border-top:3px solid #0f566b}.pattern-legend i.dashed{border-top-style:dashed}.pattern-legend i.muted{border-top:2px solid #b9c5ca;opacity:.5}.dominant{display:inline-block;padding:.3rem .7rem;border-radius:99px;background:#ffc271;color:#0f566b;font-size:.74rem;font-weight:800}.progression{padding:.8rem 1rem;border:1px solid #cfe1e7;border-radius:13px;background:#f7fbfc;display:flex;justify-content:space-between;font-size:.75rem;font-weight:800}.privacy-warning{padding:.7rem 1rem;border-radius:10px;background:#fff7eb;color:#8b641d;font-size:.78rem}@media(max-width:900px){.overview-grid{grid-template-columns:1fr}.behaviour-cards{grid-template-columns:1fr 1fr}.behaviour-card,.behaviour-card:nth-child(4){grid-column:auto}.maturity-grid{grid-template-columns:1fr 1fr;align-items:stretch}.maturity-card{min-height:300px;margin-top:2rem}}@media(max-width:600px){.behaviour-cards,.maturity-grid,.spread-guide,.badge-guide{grid-template-columns:1fr}.maturity-card{min-height:0}.progression{flex-direction:column;gap:.35rem}}
+</style>""", unsafe_allow_html=True)
+
+if "dashboard_started" not in st.session_state: st.session_state.dashboard_started = now_local()
+top_left, top_right = st.columns([5,2], vertical_alignment="center")
+with top_right:
+    logo1, logo2 = st.columns(2, vertical_alignment="center")
+    with logo1: st.image("assets/logo Coliberate.png", use_container_width=True)
+    with logo2: st.image("assets/logo KULtivating.webp", use_container_width=True)
+    lang = st.selectbox("Language · Taal · Langue", LANGUAGES, format_func=LANGUAGES.get, label_visibility="collapsed")
+t = TEXT[lang]
+with top_left: st.markdown(f'<div class="hero"><span class="live">{t["live"]}</span><h1>{t["title"]}</h1><h2>{SUBTITLE[lang]}</h2><p>{INTRO[lang]}</p></div>', unsafe_allow_html=True)
+
+expected_code = str(st.secrets.get("dashboard", {}).get("access_code", "")).strip()
+if expected_code:
+    entered_code = st.text_input(t["access"], type="password", help=t["access_help"])
+    if not entered_code: st.stop()
+    if not compare_digest(entered_code, expected_code): st.error(t["access_wrong"]); st.stop()
+
+control1, control2, control3 = st.columns([2.2,1.5,1])
+period_keys = ["session","hour","day","all"]
+with control1: period = st.selectbox(t["period"], period_keys, format_func=lambda x:t[x])
+with control3:
+    st.write("")
+    if st.button(t["refresh"], use_container_width=True): st.cache_data.clear(); st.rerun()
+
+try:
+    data = prepare(load_rows())
+except Exception:
+    st.error(t["source_error"]); st.stop()
+
+with control2:
+    orgs = sorted(x for x in data.get("organisation", pd.Series(dtype=str)).dropna().astype(str).str.strip().unique() if x)
+    selected_org = st.selectbox(t["organisation_filter"], [""] + orgs, format_func=lambda x: t["all_orgs"] if x == "" else x)
+
+now = now_local()
+cutoffs = {"session":st.session_state.dashboard_started,"hour":now-timedelta(hours=1),"day":now-timedelta(days=1)}
+filtered = data.copy()
+if period != "all": filtered = filtered[filtered["timestamp"] >= cutoffs[period]]
+if selected_org: filtered = filtered[filtered["organisation"].astype(str).str.strip() == selected_org]
+
+st.caption(f'{t["updated"]}: {now:%d/%m/%Y %H:%M:%S} · {t["period_note"]}: ' + (t["full"] if period == "all" else f'{t["from"]} {cutoffs[period]:%d/%m/%Y %H:%M}'))
+if filtered.empty:
+    st.info(t["no_data"]); st.stop()
+
+n_people = filtered["respondent"].nunique()
+respondent_pillars = filtered[filtered["pillar"].isin(PILLARS)].groupby(["respondent","pillar"])["score"].mean().unstack().reindex(columns=PILLARS)
+means = respondent_pillars.mean().dropna()
+sds = respondent_pillars.std(ddof=1).reindex(means.index)
+low_band = respondent_pillars.quantile(.10).reindex(means.index)
+high_band = respondent_pillars.quantile(.90).reindex(means.index)
+overall = means.mean()
+pillar_percentiles = pd.Series({code:percentile(code,score) for code,score in means.items()})
+overall_percentile = pillar_percentiles.mean()
+c=COPY[lang]
+p_labels={"very_low":c["p_very_low"],"low":c["p_low"],"middle":c["p_middle"],"high":c["p_high"],"very_high":c["p_very_high"]}
+s_labels={"low":c["s_low"],"moderate":c["s_moderate"],"high":c["s_high"],"unavailable":c["s_unavailable"]}
+overall_label=p_labels[percentile_band(overall_percentile)]
+st.markdown(f'<div class="metric-row"><div class="metric"><b>{t["responses"]}</b><strong>{n_people}</strong></div><div class="metric"><b>{t["average"]}</b><strong>{overall:.2f} / 7</strong><span class="badge">P{overall_percentile:.0f} · {overall_label}</span></div></div>',unsafe_allow_html=True)
+if n_people < 3: st.markdown(f'<div class="privacy-warning">{c["privacy_small"]}</div>',unsafe_allow_html=True)
+
+st.subheader(c["overview"])
+st.markdown(f'<div class="section-lead">{c["overview_intro"]}</div>',unsafe_allow_html=True)
+chart_col,stands_col=st.columns([1.3,.7],gap="large",vertical_alignment="top")
+labels=[PILLAR_TEXT[lang][code][0] for code in means.index]
+closed_labels=labels+[labels[0]]; closed_mean=list(means)+[means.iloc[0]]; closed_low=list(low_band)+[low_band.iloc[0]];closed_high=list(high_band)+[high_band.iloc[0]]
+radar=go.Figure()
+radar.add_trace(go.Scatterpolar(r=closed_low,theta=closed_labels,line=dict(color="rgba(42,165,202,0)"),hoverinfo="skip",showlegend=False))
+radar.add_trace(go.Scatterpolar(r=closed_high,theta=closed_labels,fill="tonext",fillcolor="rgba(42,165,202,.16)",line=dict(color="rgba(42,165,202,.25)"),name=c["radar_band"]))
+radar.add_trace(go.Scatterpolar(r=closed_mean,theta=closed_labels,line=dict(color="#0f566b",width=3),marker=dict(size=7,color="#0f566b"),name=c["group_mean"]))
+radar.update_layout(height=440,margin=dict(l=45,r=45,t=35,b=35),paper_bgcolor="rgba(0,0,0,0)",polar=dict(bgcolor="white",radialaxis=dict(range=[1,7],tickvals=[1,2,3,4,5,6,7],gridcolor="#cfe1e7"),angularaxis=dict(gridcolor="#dce9ed")),legend=dict(orientation="h",y=-.12,x=.15))
+with chart_col: st.plotly_chart(radar,use_container_width=True,config={"displayModeBar":False})
+high,low=means.idxmax(),means.idxmin();largest=sds.idxmax() if sds.notna().any() else high;smallest=sds.idxmin() if sds.notna().any() else low
+largest_sd="—" if pd.isna(sds[largest]) else f'{sds[largest]:.2f}';smallest_sd="—" if pd.isna(sds[smallest]) else f'{sds[smallest]:.2f}'
+with stands_col:
+    st.markdown(f'''<div class="stands"><h3>{c["stands"]}</h3><ul>
+    <li><b>{t["strongest"]}</b><br>{PILLAR_TEXT[lang][high][0]} · {means[high]:.2f}/7 · P{pillar_percentiles[high]:.0f}</li>
+    <li><b>{t["opportunity"]}</b><br>{PILLAR_TEXT[lang][low][0]} · {means[low]:.2f}/7 · P{pillar_percentiles[low]:.0f}</li>
+    <li><b>{c["largest"]}</b><br>{PILLAR_TEXT[lang][largest][0]} · SD {largest_sd}</li>
+    <li><b>{c["smallest"]}</b><br>{PILLAR_TEXT[lang][smallest][0]} · SD {smallest_sd}</li></ul></div>''',unsafe_allow_html=True)
+
+st.markdown(f'<div class="spread-guide"><div><b>{c["spread_guide"]}</b></div><div>{c["spread_low"]}</div><div>{c["spread_mid"]}<br>{c["spread_high"]}</div></div>',unsafe_allow_html=True)
+cards=[]
+for code,score in means.items():
+    title,desc=PILLAR_TEXT[lang][code];pct=pillar_percentiles[code];p_label=p_labels[percentile_band(pct)];sd=sds[code];s_band=spread_band(sd);s_label=s_labels[s_band];sd_text="—" if pd.isna(sd) else f'{sd:.2f}'
+    cards.append(f'''<article class="behaviour-card"><div class="behaviour-head"><span class="pillar-icon">{PILLAR_ICONS[code]}</span><div><h3>{title}</h3><p>{desc}</p></div></div><div class="card-score"><b>{c["group_mean"]}</b><div class="track"><i style="width:{score/7*100:.1f}%"></i></div><strong>{score:.2f}/7</strong></div><div class="badges"><div class="status mean"><b>{c["benchmark"]}</b>{p_label} · P{pct:.0f}</div><div class="status spread-{s_band}"><b>{c["spread"]}</b>{s_label} · SD {sd_text}</div></div></article>''')
+st.markdown(f'<div class="behaviour-cards">{"".join(cards)}</div>',unsafe_allow_html=True)
+st.markdown(f'<div class="badge-guide"><div><b>{c["benchmark"]}</b><br>{c["benchmark_help"]}</div><div><b>{c["spread"]}</b><br>{c["spread_help"]}</div></div>',unsafe_allow_html=True)
+
+st.subheader(c["distribution"]);st.markdown(f'<div class="section-lead">{c["distribution_intro"]}</div>',unsafe_allow_html=True)
+category_labels={"nl":["Zeer beperkt","Beperkt","Eerder beperkt","Midden","Eerder sterk","Sterk","Zeer sterk"],"fr":["Très limité","Limité","Plutôt limité","Milieu","Plutôt fort","Fort","Très fort"],"en":["Very limited","Limited","Rather limited","Middle","Rather strong","Strong","Very strong"]}[lang]
+colors=["#edf7f9","#dceff3","#c6e6ed","#9ed5e1","#69bed1","#2aa5ca","#0f566b"]
+dist=go.Figure()
+rounded=respondent_pillars.round().clip(1,7)
+for value,label,color in zip(range(1,8),category_labels,colors):
+    percentages=[(rounded[code].eq(value).sum()/rounded[code].notna().sum()*100 if rounded[code].notna().sum() else 0) for code in means.index]
+    dist.add_trace(go.Bar(y=labels,x=percentages,name=label,orientation="h",marker_color=color,text=[f"{v:.0f}%" if v>=5 else "" for v in percentages],textposition="inside"))
+dist.update_layout(barmode="stack",height=380,margin=dict(l=10,r=10,t=30,b=30),paper_bgcolor="rgba(0,0,0,0)",plot_bgcolor="white",xaxis=dict(range=[0,100],title="%"),yaxis=dict(autorange="reversed"),legend=dict(orientation="h",y=1.18,x=0))
+st.plotly_chart(dist,use_container_width=True,config={"displayModeBar":False})
+
+levels=respondent_maturity(filtered)
+if not levels.empty:
+    counts=levels.value_counts().reindex(range(6),fill_value=0);dominant=int(counts.idxmax());total=int(counts.sum())
+    st.subheader(c["maturity"]);st.markdown(f'<div class="section-lead">{c["maturity_intro"]}</div><span class="dominant">{c["dominant"]}: {MATURITY[lang][dominant][0]}</span>',unsafe_allow_html=True)
+    level_colors=["#cf256c","#eb8500","#199fa7","#118b8d","#0879bd","#0c447f"];softs=["#fff0f3","#fff7eb","#eefafa","#edf8f5","#eef6fb","#edf2f8"];heights=[330,350,370,390,410,430]
+    maturity_cards=[]
+    for level,(label,desc) in enumerate(MATURITY[lang]):
+        count=int(counts[level]);percentage=count/total*100
+        stage_class="dominant-stage" if level==dominant else "present-stage" if count>0 else "absent-stage"
+        maturity_cards.append(f'<article class="maturity-card {stage_class}" style="--level:{level_colors[level]};--soft:{softs[level]};--height:{heights[level]}px"><div class="circle">{MATURITY_ICONS[level]}</div><small>{LEVEL_LABEL[lang]} {level}</small><h3>{label}</h3><p>{desc}</p><div class="maturity-count"><b>{count}</b> {c["respondents"]}<div class="share-track"><i style="width:{percentage:.1f}%"></i></div><strong>{percentage:.0f}%</strong></div></article>')
+    legend=PATTERN_LEGEND[lang]
+    st.markdown(f'<div class="maturity-grid">{"".join(maturity_cards)}</div><div class="pattern-legend"><span><i></i>{legend[0]}</span><span><i class="dashed"></i>{legend[1]}</span><span><i class="muted"></i>{legend[2]}</span></div><div class="progression"><span>{c["progress"]}</span><span>→</span><span>{MATURITY[lang][2][0]}</span><span>→</span><span>{MATURITY[lang][4][0]}</span><span>→</span><span>{MATURITY[lang][5][0]}</span></div>',unsafe_allow_html=True)
+st.markdown(f'<p class="privacy">{t["privacy"]}</p>',unsafe_allow_html=True)
