@@ -735,6 +735,12 @@ h1, h2, h3 { color: var(--primary) !important; }
 .summary-stat strong { display:block; margin-top:.15rem; font-size:1.02rem; }
 .summary-copy { margin-top:.85rem; padding:.75rem; border-radius:10px; background:white; color:var(--text); }
 div[data-testid="stRadio"] label p { font-size: .86rem; }
+@media (min-width: 900px) {
+    div[data-testid="stRadio"] div[role="radiogroup"] {
+        flex-wrap: nowrap;
+        gap: .55rem;
+    }
+}
 .stButton > button {
     border: 0;
     border-radius: 999px;
@@ -825,7 +831,8 @@ elif st.session_state.step == 2:
     for code in QUESTION_CODES:
         q = QUESTION_TEXTS[LANGUAGE][code]
         with st.container():
-            col_q, col_a = st.columns([5, 5])
+            # Geef de zeven antwoordopties voldoende ruimte om op één regel te blijven.
+            col_q, col_a = st.columns([4, 8], gap="large")
 
             with col_q:
                 st.markdown(f"**{q}**")
@@ -1022,25 +1029,26 @@ elif st.session_state.step == 3:
         percentile = get_percentile(title, raw_score)
         percentile_text = percentile_label(percentile)
 
-        card_html = f"""
-        <article class="pillar-card">
-            <header class="pillar-header">
-                <span class="pillar-icon">{PILLAR_ICONS[pillar]}</span>
-                <div><h3>{title}</h3><p>{description}</p></div>
-            </header>
-            <div class="score-row">
-                <div class="score-track"><div class="score-fill" style="width:{score_percentage:.1f}%"></div></div>
-                <span class="score-value">{score} / 7</span>
-            </div>
-            <span class="percentile-badge" title="P{percentile:.0f} betekent dat je hoger scoort dan ongeveer {percentile:.0f}% van de externe normgroep.">
-                <b>Interpretatie</b><strong>P{percentile:.0f}</strong><small>{percentile_text}</small>
-            </span>
-            <div class="interpretation-box">
-                <strong>{T['interpretation']}</strong>
-                <p>{explanation}</p>
-            </div>
-        </article>
-        """
+        # Zonder regeleindes: anders kan Markdown ingesprongen HTML na kaart 1
+        # als een codeblok tonen in plaats van als onderdeel van hetzelfde grid.
+        card_html = (
+            '<article class="pillar-card">'
+            '<header class="pillar-header">'
+            f'<span class="pillar-icon">{PILLAR_ICONS[pillar]}</span>'
+            f'<div><h3>{title}</h3><p>{description}</p></div>'
+            '</header>'
+            '<div class="score-row">'
+            f'<div class="score-track"><div class="score-fill" style="width:{score_percentage:.1f}%"></div></div>'
+            f'<span class="score-value">{score} / 7</span>'
+            '</div>'
+            f'<span class="percentile-badge" title="P{percentile:.0f} betekent dat je hoger scoort dan ongeveer {percentile:.0f}% van de externe normgroep.">'
+            f'<b>Interpretatie</b><strong>P{percentile:.0f}</strong><small>{percentile_text}</small>'
+            '</span>'
+            '<div class="interpretation-box">'
+            f'<strong>{T["interpretation"]}</strong><p>{explanation}</p>'
+            '</div>'
+            '</article>'
+        )
         cards.append(card_html)
     st.markdown(f'<div class="pillar-grid">{"".join(cards)}</div>', unsafe_allow_html=True)
     st.caption(
