@@ -237,7 +237,7 @@ def compute_scores(answers):
     return pivot, block_scores
 
 
-def compute_maturity_level(block_scores_df):
+def compute_maturity_level(block_scores_df, pillar_scores_df):
     """
     block_scores_df: dataframe met kolommen:
     [block, score]
@@ -249,6 +249,9 @@ def compute_maturity_level(block_scores_df):
     b2 = scores.get(2, 0)
     b3 = scores.get(3, 0)
     b4 = scores.get(4, 0)
+    pillar_scores = dict(zip(pillar_scores_df["pillar"], pillar_scores_df["score"]))
+    vv = pillar_scores.get("VV", 0)
+    ci = pillar_scores.get("CI", 0)
 
     # -------------------------
     # BLOCK 1
@@ -259,27 +262,27 @@ def compute_maturity_level(block_scores_df):
     # -------------------------
     # BLOCK 2
     # -------------------------
-    if b2 < 4:
+    if b2 < 4.5:
         return 1
-    elif 4 <= b2 <= 6:
+    elif b2 <= 5.5:
         return 2
-    # alleen als b2 > 6 ga je verder
+    # alleen als b2 > 5.5 ga je verder
 
     # -------------------------
     # BLOCK 3
     # -------------------------
-    if b3 < 4:
+    if b3 < 4.5:
         return 2
-    elif 4 <= b3 <= 6:
+    elif b3 <= 5.5:
         return 3
-    # alleen als b3 > 6 ga je verder
+    # alleen als b3 > 5.5 ga je verder
 
     # -------------------------
     # BLOCK 4
     # -------------------------
-    if b4 < 4:
+    if b4 < 4.5:
         return 3
-    elif 4 <= b4 <= 6:
+    elif b4 < 6 or vv < 5.75 or ci < 5.75:
         return 4
     else:
         return 5
@@ -557,6 +560,76 @@ pillar_data = {
     }
 }
 
+PERCENTILE_DATA = {
+    "Veranderattitude": [(4.56, 2.50), (4.78, 5.00), (4.89, 10.00), (5.00, 20.00), (5.11, 22.50), (5.22, 40.00), (5.44, 42.50), (5.56, 47.50), (5.67, 62.50), (5.78, 65.00), (5.89, 72.50), (6.00, 80.00), (6.11, 87.50), (6.22, 97.50), (6.67, 100.00)],
+    "Veerkracht & Zelfregulatie": [(2.40, 0.66), (2.60, 3.29), (2.80, 5.92), (3.00, 8.55), (3.20, 12.50), (3.40, 16.45), (3.60, 21.71), (3.80, 37.50), (4.00, 48.03), (4.20, 57.89), (4.40, 67.11), (4.60, 72.37), (4.80, 75.00), (5.00, 75.66), (5.20, 77.63), (5.40, 80.92), (5.60, 82.24), (5.80, 88.16), (6.00, 92.11), (6.20, 94.74), (6.40, 98.68), (6.60, 99.34), (6.80, 100.00)],
+    "Leermotivatie & Ontwikkeling": [(2.25, 0.66), (2.50, 1.97), (2.75, 3.29), (3.00, 3.95), (3.25, 8.55), (3.50, 11.84), (3.75, 15.13), (4.00, 19.74), (4.25, 28.29), (4.50, 38.16), (4.75, 50.66), (5.00, 62.50), (5.25, 71.71), (5.50, 78.95), (5.75, 87.50), (6.00, 95.39), (6.25, 96.71), (6.50, 98.03), (6.75, 100.00)],
+    "Vooruitzien & Voorbereiden": [(4.00, 2.50), (4.12, 5.00), (4.25, 15.00), (4.38, 17.50), (4.50, 20.00), (4.62, 22.50), (4.75, 25.00), (4.88, 27.50), (5.00, 37.50), (5.12, 45.00), (5.25, 47.50), (5.38, 50.00), (5.50, 67.50), (5.71, 70.00), (5.75, 75.00), (5.88, 82.50), (6.00, 87.50), (6.25, 97.50), (6.50, 100.00)],
+    "Creativiteit & Innovatie": [(3.60, 5.00), (3.80, 7.50), (4.00, 10.00), (4.20, 15.00), (4.40, 22.50), (4.80, 32.50), (5.00, 45.00), (5.20, 57.50), (5.60, 65.00), (5.80, 77.50), (6.00, 85.00), (6.20, 92.50), (6.40, 95.00), (6.60, 97.50), (7.00, 100.00)],
+}
+
+
+def get_percentile(title, score):
+    """Interpoleer de score lineair binnen de externe normgroep."""
+    values = PERCENTILE_DATA.get(title, [])
+    if not values:
+        return None
+    if score < values[0][0]:
+        return 0.0
+    if score >= values[-1][0]:
+        return 100.0
+    for index in range(1, len(values)):
+        lower_score, lower_percentile = values[index - 1]
+        upper_score, upper_percentile = values[index]
+        if score <= upper_score:
+            position = (score - lower_score) / (upper_score - lower_score)
+            return lower_percentile + position * (upper_percentile - lower_percentile)
+    return 100.0
+
+
+def percentile_label(percentile):
+    if percentile is None:
+        return "Geen normdata"
+    if percentile < 10:
+        return "Zeer laag"
+    if percentile < 30:
+        return "Eerder laag"
+    if percentile <= 70:
+        return "Rond het midden"
+    if percentile <= 90:
+        return "Eerder hoog"
+    return "Zeer hoog"
+
+
+def short_summary(level):
+    summaries = {
+        0: "Je adaptiviteit staat nog aan het begin van haar ontwikkeling.",
+        1: "Je werkt correct mee met verandering wanneer dat nodig is.",
+        2: "Je past je goed aan wanneer verandering zich voordoet.",
+        3: "Je schakelt flexibel en oplossingsgericht in veranderende situaties.",
+        4: "Je denkt vooruit en bereidt je bewust voor op toekomstige verandering.",
+        5: "Je creëert actief verandering en helpt anderen daarin mee te groeien.",
+    }
+    return summaries.get(level, "")
+
+
+PILLAR_ICONS = {
+    "VA": '<svg viewBox="0 0 64 64"><path d="M18 17a19 19 0 0 1 28 5"/><path d="M46 14v10H36"/><path d="M46 47a19 19 0 0 1-28-5"/><path d="M18 50V40h10"/></svg>',
+    "VZ": '<svg viewBox="0 0 64 64"><path d="M32 8 50 15v14c0 12-8 21-18 27-10-6-18-15-18-27V15z"/><path d="m23 31 6 6 12-14"/></svg>',
+    "LO": '<svg viewBox="0 0 64 64"><path d="M10 16c8-3 15-1 22 4v30c-7-5-14-7-22-4z"/><path d="M54 16c-8-3-15-1-22 4v30c7-5 14-7 22-4z"/><path d="M32 20v30"/></svg>',
+    "VV": '<svg viewBox="0 0 64 64"><path d="m12 25 29-10 4 9-29 10z"/><path d="m42 24 10 7M27 32 18 54M35 29 45 54"/></svg>',
+    "CI": '<svg viewBox="0 0 64 64"><path d="M21 28a11 11 0 1 1 22 0c0 6-3 8-6 12H27c-3-4-6-6-6-12z"/><path d="M27 45h10M29 50h6M32 5v7M10 28H3M61 28h-7"/></svg>',
+}
+
+PILLAR_SHORT_DESCRIPTIONS = {
+    "VA": "Positief en constructief omgaan met verandering.",
+    "VZ": "Omgaan met druk en emoties en herstellen bij tegenslag.",
+    "LO": "Continu willen leren en jezelf ontwikkelen.",
+    "VV": "Anticiperen op toekomstige veranderingen en je voorbereiden.",
+    "CI": "Nieuwe ideeën bedenken en toepassen om vooruit te gaan.",
+}
+
+
 def get_score_explanation(score, meanings):
     if score <= 2:
         return meanings["low"]
@@ -616,24 +689,51 @@ h1, h2, h3 { color: var(--primary) !important; }
     border-color: var(--line) !important;
     border-radius: 16px !important;
 }
+.pillar-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: stretch;
+}
 .pillar-card {
-    min-height: 285px;
+    grid-column: span 2;
+    min-height: 100%;
     padding: 1.1rem;
-    margin-bottom: 1rem;
     border: 1px solid var(--line);
-    border-top: 5px solid var(--primary);
+    border: 1.5px solid var(--primary);
     border-radius: 16px;
     background: white;
     box-shadow: 0 8px 22px rgba(15, 86, 107, .07);
+    display: flex;
+    flex-direction: column;
 }
-.pillar-card h3 { font-size: 1.12rem; margin-bottom: .55rem; }
-.pillar-card p { font-size: .94rem; }
+.pillar-card:nth-child(4) { grid-column: 2 / span 2; }
+.pillar-card:nth-child(5) { grid-column: 4 / span 2; }
+.pillar-header { display:grid; grid-template-columns:48px 1fr; gap:.75rem; align-items:start; }
+.pillar-icon {
+    width:46px; height:46px; border-radius:50%; background:var(--primary); color:white;
+    display:grid; place-items:center; flex:none;
+}
+.pillar-icon svg { width:68%; height:68%; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+.pillar-card h3 { font-size: 1.04rem; line-height:1.18; margin:0 0 .4rem; }
+.pillar-card p { font-size: .88rem; line-height:1.42; margin:0; }
 .score-row { display:flex; align-items:center; gap:.75rem; margin:.9rem 0; }
 .score-track { flex:1; height:9px; border-radius:999px; background:#e5f0f3; overflow:hidden; }
 .score-fill { height:100%; border-radius:999px; background:linear-gradient(90deg, var(--blue), var(--primary)); }
 .score-value { color:var(--primary); font-weight:800; white-space:nowrap; }
-.interpretation-box { padding:.8rem; border-radius:10px; background:var(--light-blue); }
+.percentile-badge { display:inline-grid; grid-template-columns:auto auto; gap:.1rem .45rem; align-items:center; width:max-content; padding:.4rem .65rem; border-radius:10px; background:#fff7eb; color:var(--primary); margin-bottom:.75rem; }
+.percentile-badge b { font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; }
+.percentile-badge strong { font-size:1rem; }
+.percentile-badge small { grid-column:1 / -1; color:var(--muted); font-weight:700; }
+.interpretation-box { padding:.8rem; border-radius:10px; background:var(--light-blue); margin-top:auto; }
 .interpretation-box strong { color:var(--primary); }
+.profile-summary-card { padding:1.15rem; border:1px solid var(--line); border-left:5px solid var(--primary); border-radius:16px; background:var(--light-blue); min-height:100%; }
+.profile-summary-card h3 { margin-top:0; }
+.summary-stat { padding:.7rem 0; border-bottom:1px solid rgba(15,86,107,.16); }
+.summary-stat:last-of-type { border-bottom:0; }
+.summary-stat b { color:var(--primary); }
+.summary-stat strong { display:block; margin-top:.15rem; font-size:1.02rem; }
+.summary-copy { margin-top:.85rem; padding:.75rem; border-radius:10px; background:white; color:var(--text); }
 div[data-testid="stRadio"] label p { font-size: .86rem; }
 .stButton > button {
     border: 0;
@@ -649,6 +749,13 @@ div[data-testid="stRadio"] label p { font-size: .86rem; }
     .block-container { padding: 1rem; }
     .app-header { border-radius: 0 28px 28px 0; margin-left:-1rem; }
     .app-header h1 { font-size:1.65rem; }
+    .pillar-grid { grid-template-columns:1fr; }
+    .pillar-card, .pillar-card:nth-child(4), .pillar-card:nth-child(5) { grid-column:1; }
+}
+@media (min-width: 701px) and (max-width: 980px) {
+    .pillar-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .pillar-card, .pillar-card:nth-child(4), .pillar-card:nth-child(5) { grid-column:auto; }
+    .pillar-card:last-child { grid-column:1 / -1; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -854,7 +961,7 @@ elif st.session_state.step == 3:
     # SCORES (ALTIJD BINNEN STEP 3)
     # ---------------------------
     pivot, block_scores = compute_scores(st.session_state.answers)
-    level = compute_maturity_level(block_scores)
+    level = compute_maturity_level(block_scores, pivot)
 
     # ---------------------------
     # LAYOUT
@@ -864,41 +971,83 @@ elif st.session_state.step == 3:
     st.markdown(f"### {T['profile']}")
     st.write(T["profile_intro"])
 
+    profile_rows = []
+    for _, row in pivot.iterrows():
+        title = pillar_data[row["pillar"]]["title"]
+        score = float(row["score"])
+        percentile = get_percentile(title, score)
+        profile_rows.append({
+            "code": row["pillar"],
+            "title": title,
+            "score": score,
+            "percentile": percentile,
+            "percentile_label": percentile_label(percentile),
+        })
+    strongest = max(profile_rows, key=lambda item: item["score"])
+    weakest = min(profile_rows, key=lambda item: item["score"])
+
     radar_column, summary_column = st.columns([1.2, .8], gap="large", vertical_alignment="top")
     with radar_column:
         st.subheader(T["core_profile"])
         radar_plot(pivot)
     with summary_column:
-        with st.container(border=True):
-            st.subheader("Wat valt op?")
-            st.markdown(feedback(level).split("### Volgende stappen:")[0])
+        summary_html = f"""
+        <article class="profile-summary-card">
+            <h3>Wat valt op?</h3>
+            <div class="summary-stat">
+                <b>Sterkste pijler</b>
+                <strong>{strongest['title']}: {strongest['score']:.1f} / 7</strong>
+                <small>P{strongest['percentile']:.0f} · {strongest['percentile_label']}</small>
+            </div>
+            <div class="summary-stat">
+                <b>Grootste ontwikkelkans</b>
+                <strong>{weakest['title']}: {weakest['score']:.1f} / 7</strong>
+                <small>P{weakest['percentile']:.0f} · {weakest['percentile_label']}</small>
+            </div>
+            <p class="summary-copy">{short_summary(level)}</p>
+        </article>
+        """
+        st.markdown(summary_html, unsafe_allow_html=True)
 
     st.markdown(f"## {T['pillars']}")
-    card_columns = st.columns(3, gap="medium")
-    for index, (_, row) in enumerate(pivot.iterrows()):
+    cards = []
+    for _, row in pivot.iterrows():
         pillar = row["pillar"]
-        score = round(row["score"], 1)
+        raw_score = float(row["score"])
+        score = round(raw_score, 1)
         title = pillar_data[pillar]["title"]
-        description = pillar_data[pillar]["description"]
+        description = PILLAR_SHORT_DESCRIPTIONS[pillar]
         explanation = get_score_explanation(round(score), pillar_data[pillar]["score_meaning"])
-        percentage = max(0, min(100, (score / 7) * 100))
+        score_percentage = max(0, min(100, (raw_score / 7) * 100))
+        percentile = get_percentile(title, raw_score)
+        percentile_text = percentile_label(percentile)
 
         card_html = f"""
         <article class="pillar-card">
-            <h3>{title}</h3>
-            <p>{description}</p>
+            <header class="pillar-header">
+                <span class="pillar-icon">{PILLAR_ICONS[pillar]}</span>
+                <div><h3>{title}</h3><p>{description}</p></div>
+            </header>
             <div class="score-row">
-                <div class="score-track"><div class="score-fill" style="width:{percentage:.1f}%"></div></div>
+                <div class="score-track"><div class="score-fill" style="width:{score_percentage:.1f}%"></div></div>
                 <span class="score-value">{score} / 7</span>
             </div>
+            <span class="percentile-badge" title="P{percentile:.0f} betekent dat je hoger scoort dan ongeveer {percentile:.0f}% van de externe normgroep.">
+                <b>Interpretatie</b><strong>P{percentile:.0f}</strong><small>{percentile_text}</small>
+            </span>
             <div class="interpretation-box">
                 <strong>{T['interpretation']}</strong>
                 <p>{explanation}</p>
             </div>
         </article>
         """
-        with card_columns[index % 3]:
-            st.markdown(card_html, unsafe_allow_html=True)
+        cards.append(card_html)
+    st.markdown(f'<div class="pillar-grid">{"".join(cards)}</div>', unsafe_allow_html=True)
+    st.caption(
+        "Pxx toont je positie ten opzichte van de externe normgroep. "
+        "P76 betekent bijvoorbeeld dat je hoger scoort dan ongeveer 76% van die normgroep; "
+        "het is geen percentage juiste antwoorden."
+    )
 
     # ---------------------------
     # EXTRA FEEDBACK ONDERAAN
