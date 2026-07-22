@@ -5,73 +5,18 @@ import plotly.express as px
 import gspread
 import streamlit.components.v1 as components
 from google.oauth2.service_account import Credentials
-import smtplib
-from email.mime.text import MIMEText
-import markdown
-from email.mime.multipart import MIMEMultipart
-from email.mime.image import MIMEImage
-
-# ---------------------------
-# EMAIL FUNCTIE (MUST BE GLOBAL)
-# ---------------------------
-def send_email(to_email, subject, html_content):
-    sender_email = st.secrets["gmail_user"]
-    sender_password = st.secrets["gmail_password"]
-
-    msg = MIMEMultipart("related")
-    msg["Subject"] = subject
-    msg["From"] = sender_email
-    msg["To"] = to_email
-
-    # HTML container
-    msg_alternative = MIMEMultipart("alternative")
-    msg.attach(msg_alternative)
-    msg_alternative.attach(MIMEText(html_content, "html"))
-
-    # ---------------------------
-    # LOGO 1
-    # ---------------------------
-    with open("assets/logo Coliberate.png", "rb") as img:
-        mime_img = MIMEImage(img.read(), _subtype="png")
-        mime_img.add_header("Content-ID", "<logo_coliberate>")
-        mime_img.add_header("Content-Disposition", "inline", filename="logo_coliberate.png")
-        msg.attach(mime_img)
-
-    # ---------------------------
-    # LOGO 2
-    # ---------------------------
-    with open("assets/logo KULtivating.png", "rb") as img:
-        mime_img = MIMEImage(img.read(), _subtype="png")
-        mime_img.add_header("Content-ID", "<logo_kultivating>")
-        mime_img.add_header("Content-Disposition", "inline", filename="logo_kultivating.png")
-        msg.attach(mime_img)
-
-    # SEND
-    server = smtplib.SMTP("smtp.gmail.com", 587)
-    server.starttls()
-    server.login(sender_email, sender_password)
-    server.send_message(msg)
-    server.quit()
         
 # ---------------------------
 # APP CONFIG
 # ---------------------------
-st.markdown('<div id="top"></div>', unsafe_allow_html=True)
-
 st.set_page_config(
     page_title="Adaptivity Maturiteitsscan",
-    layout="wide"
+    page_icon="🌱",
+    layout="wide",
+    initial_sidebar_state="collapsed",
 )
 
-col1, col2 = st.columns([4, 1])
-
-with col1:
-    st.title("Adaptiviteit Maturiteitsscan")
-#   st.markdown("### Hoe futureproof ben jij?")
-
-with col2:
-    st.image("logo Coliberate.png", width=100)
-    st.image("logo KULtivating.webp", width=100)
+st.markdown('<div id="top"></div>', unsafe_allow_html=True)
 
 # ---------------------------
 # GOOGLE SHEETS CONNECTION
@@ -197,6 +142,50 @@ question_order = {
 
 questions = sorted(question_order, key=question_order.get)
 
+# De technische logica gebruikt stabiele itemcodes, niet de zichtbare tekst.
+# Voeg later per taal een extra mapping toe (bv. "fr" en "en") zonder scoring
+# of historische data te wijzigen.
+QUESTION_TEXTS = {
+    "nl": {question_map[text]["code"]: text for text in questions},
+}
+QUESTION_META = {
+    question_map[text]["code"]: {
+        **question_map[text],
+        "order": question_order[text],
+    }
+    for text in questions
+}
+QUESTION_CODES = sorted(QUESTION_META, key=lambda code: QUESTION_META[code]["order"])
+
+UI_TEXTS = {
+    "nl": {
+        "app_title": "Adaptiviteit Maturiteitsscan",
+        "app_intro": "Ontdek in enkele minuten hoe jij omgaat met verandering, leren, veerkracht en innovatie.",
+        "details_step": "Stap 1 · Je gegevens",
+        "scan_step": "Stap 2 · Adaptiviteitsscan",
+        "name": "Naam",
+        "email": "E-mailadres (optioneel)",
+        "email_help": "We bewaren dit alleen zodat we je resultaat later eventueel kunnen bezorgen. Er wordt nu geen e-mail verstuurd.",
+        "role": "Functie",
+        "organisation": "Organisatie",
+        "start": "Start vragenlijst",
+        "submit": "Toon mijn resultaat",
+        "missing": "Vul alle vragen in om je resultaat te bekijken.",
+        "complete": "Alle vragen zijn ingevuld.",
+        "thanks": "Bedankt voor je deelname",
+        "profile": "Jouw persoonlijke adaptiviteit",
+        "profile_intro": "Adaptiviteit beschrijft hoe je veerkrachtig omgaat met het heden én hoe je je voorbereidt op wat komt.",
+        "core_profile": "Jouw kernprofiel",
+        "pillars": "Jouw vijf kernpijlers",
+        "interpretation": "Jouw interpretatie",
+        "adaptivity": "Je adaptiviteit",
+        "restart": "Opnieuw invullen",
+    }
+}
+
+LANGUAGE = "nl"  # Voeg hier later een taalkeuze aan toe zodra vertalingen klaar zijn.
+T = UI_TEXTS[LANGUAGE]
+
 scale_labels = [
     "1 - Nooit",
     "2 - Zeer zelden",
@@ -215,8 +204,8 @@ scale_values = list(range(1, 8))
 def compute_scores(answers):
     rows = []
 
-    for q, score in answers.items():
-        meta = question_map[q]
+    for code, score in answers.items():
+        meta = QUESTION_META[code]
         pillar = meta["pillar"]
         block = meta["block"]
         direction = meta["direction"]
@@ -580,34 +569,117 @@ def get_score_explanation(score, meanings):
 
 st.markdown("""
 <style>
-div[data-testid="stRadio"] label {
-    font-size: 0px; /* verbergt default label maar breekt layout niet */
+:root {
+    --primary: #0f566b;
+    --blue: #2aa5ca;
+    --yellow: #ffc271;
+    --light-blue: #eef8fb;
+    --text: #17313b;
+    --muted: #667985;
+    --line: #cfe1e7;
+}
+html, body, [data-testid="stAppViewContainer"] {
+    scroll-behavior: smooth;
+    color: var(--text);
+}
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(180deg, #f5fbfd 0, #ffffff 300px);
+}
+.block-container {
+    max-width: 1180px;
+    padding-top: 2rem;
+    padding-bottom: 4rem;
+}
+h1, h2, h3 { color: var(--primary) !important; }
+.app-header {
+    padding: 1.4rem 1.6rem;
+    margin-bottom: 1.4rem;
+    border-radius: 0 42px 42px 0;
+    background: var(--primary);
+    color: white;
+}
+.app-header h1 { color: white !important; margin: 0; font-size: 2.2rem; }
+.app-header p { margin: .45rem 0 0; color: white; max-width: 760px; }
+.section-pill {
+    display: inline-block;
+    margin-bottom: .55rem;
+    padding: .28rem .75rem;
+    border-radius: 999px;
+    background: var(--primary);
+    color: white;
+    font-size: .78rem;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+[data-testid="stForm"], [data-testid="stVerticalBlockBorderWrapper"] {
+    border-color: var(--line) !important;
+    border-radius: 16px !important;
+}
+.pillar-card {
+    min-height: 285px;
+    padding: 1.1rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--line);
+    border-top: 5px solid var(--primary);
+    border-radius: 16px;
+    background: white;
+    box-shadow: 0 8px 22px rgba(15, 86, 107, .07);
+}
+.pillar-card h3 { font-size: 1.12rem; margin-bottom: .55rem; }
+.pillar-card p { font-size: .94rem; }
+.score-row { display:flex; align-items:center; gap:.75rem; margin:.9rem 0; }
+.score-track { flex:1; height:9px; border-radius:999px; background:#e5f0f3; overflow:hidden; }
+.score-fill { height:100%; border-radius:999px; background:linear-gradient(90deg, var(--blue), var(--primary)); }
+.score-value { color:var(--primary); font-weight:800; white-space:nowrap; }
+.interpretation-box { padding:.8rem; border-radius:10px; background:var(--light-blue); }
+.interpretation-box strong { color:var(--primary); }
+div[data-testid="stRadio"] label p { font-size: .86rem; }
+.stButton > button {
+    border: 0;
+    border-radius: 999px;
+    background: var(--primary);
+    color: white;
+    font-weight: 700;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+}
+.stButton > button:hover { background:#0a4455; color:white; }
+@media (max-width: 700px) {
+    .block-container { padding: 1rem; }
+    .app-header { border-radius: 0 28px 28px 0; margin-left:-1rem; }
+    .app-header h1 { font-size:1.65rem; }
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("""
-<style>
-html, body, [data-testid="stAppViewContainer"] {
-    scroll-behavior: smooth;
-}
-</style>
-""", unsafe_allow_html=True)
+header_left, header_right = st.columns([5, 1.35], vertical_alignment="center")
+with header_left:
+    st.markdown(
+        f'<div class="app-header"><h1>{T["app_title"]}</h1><p>{T["app_intro"]}</p></div>',
+        unsafe_allow_html=True,
+    )
+with header_right:
+    logo_left, logo_right = st.columns(2, vertical_alignment="center")
+    with logo_left:
+        st.image("assets/logo Coliberate.png", use_container_width=True)
+    with logo_right:
+        st.image("assets/logo KULtivating.webp", use_container_width=True)
 
 # ---------------------------
 # STEP 1
 # ---------------------------
 if st.session_state.step == 1:
-    st.subheader ("Vul deze korte vragenlijst (3') in en kom te weten hoe matuur jouw adaptiviteit is")
+    st.markdown(f'<span class="section-pill">{T["details_step"]}</span>', unsafe_allow_html=True)
+    st.subheader("Vertel ons kort wie je bent")
 
-    st.subheader("Stap 1: Je gegevens")
+    naam = st.text_input(T["name"])
+    email = st.text_input(T["email"], help=T["email_help"], placeholder="naam@organisatie.be")
+    functie = st.text_input(T["role"])
+    organisatie = st.text_input(T["organisation"])
+    st.caption(T["email_help"])
 
-    naam = st.text_input("Naam")
-    email = st.text_input("Email - hierop ontvang je jouw persoonlijke feedbackrapport")
-    functie = st.text_input("Functie")
-    organisatie = st.text_input("Organisatie")
-
-    if st.button("Start vragenlijst"):
+    if st.button(T["start"]):
         st.session_state.naam = naam
         st.session_state.email = email
         st.session_state.functie = functie
@@ -622,7 +694,8 @@ if st.session_state.step == 1:
 # ---------------------------
 elif st.session_state.step == 2:
 
-    st.subheader("Stap 2: Adaptiviteitsscan")
+    st.markdown(f'<span class="section-pill">{T["scan_step"]}</span>', unsafe_allow_html=True)
+    st.subheader("Duid voor elke uitspraak aan hoe vaak dit bij jou voorkomt")
 
     answers = st.session_state.answers
 
@@ -642,7 +715,8 @@ elif st.session_state.step == 2:
     # ---------------------------
     # QUESTIONS
     # ---------------------------
-    for q in questions:
+    for code in QUESTION_CODES:
+        q = QUESTION_TEXTS[LANGUAGE][code]
         with st.container():
             col_q, col_a = st.columns([5, 5])
 
@@ -654,14 +728,14 @@ elif st.session_state.step == 2:
                     label="",
                     options=list(scale_map.keys()),
                     horizontal=True,
-                    key=q,
+                    key=f"question_{code}",
                     index=None,
                     label_visibility="collapsed"
                 )
 
                 # 🔴 BELANGRIJK: expliciet opslaan
                 if selected:
-                    answers[q] = scale_map[selected]
+                    answers[code] = scale_map[selected]
 
         st.markdown(
             "<hr style='margin:8px 0; opacity:0.6;'>",
@@ -671,23 +745,24 @@ elif st.session_state.step == 2:
     # ---------------------------
     # COMPLETENESS CHECK
     # ---------------------------
-    missing = [q for q in questions if q not in answers]
+    missing = [code for code in QUESTION_CODES if code not in answers]
     if missing:
-        st.warning("Vul alle vragen in.")
+        st.warning(T["missing"])
     else:
-        st.success("Alle vragen ingevuld.")
+        st.success(T["complete"])
 
     # ---------------------------
     # SUBMIT
     # ---------------------------
-    if st.button("Versturen"):
+    if st.button(T["submit"], disabled=bool(missing)):
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         rows_to_add = []
 
-        for q, score in answers.items():
-            meta = question_map[q]
+        for code, score in answers.items():
+            meta = QUESTION_META[code]
+            q = QUESTION_TEXTS[LANGUAGE][code]
 
             raw_score = score
             final_score = 8 - score if meta["direction"] == "neg" else score
@@ -775,9 +850,6 @@ elif st.session_state.step == 3:
         height=0
     )
 
-    st.success("Bedankt voor je deelname 🎉")
-    st.subheader("Je profiel")
-
     # ---------------------------
     # SCORES (ALTIJD BINNEN STEP 3)
     # ---------------------------
@@ -785,227 +857,60 @@ elif st.session_state.step == 3:
     level = compute_maturity_level(block_scores)
 
     # ---------------------------
-    # HTML REPORT BUILDER (MAIL + EVENTUEEL PDF)
-    # ---------------------------
-    def build_report_html(level, pivot):
-        html = f"""
-        <html>
-        <head>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    color: #222;
-                    line-height: 1.6;
-                }}
-                h2 {{
-                    color: #2E86C1;
-                }}
-                .box {{
-                    padding: 10px;
-                    margin-bottom: 10px;
-                    border-left: 4px solid #2E86C1;
-                    background: #f5f9fc;
-                }}
-                .pillar {{
-                    margin-bottom: 15px;
-                    padding: 10px;
-                    border-left: 3px solid #999;
-                    background: #fafafa;
-                }}
-            </style>
-        </head>
-        <body>
-
-        <div style="width:100%; display:block; text-align:right;">
-            <img src="cid:logo_coliberate" height="60"  style="margin-right:10px;">
-            <img src="cid:logo_kultivating" height="60">
-        </div>
-    
-        <h2>Jouw Adaptiviteitsscan resultaat</h2>
-        <p>
-        Bedankt voor je deelname aan de Adaptiviteitsscan.
-        In deze mail vind je jouw persoonlijke resultaat, inclusief de verschillende pijlers van je adaptief gedrag,
-        en enkele concrete groeistappen.
-        </p>
-        
-        <hr>
-        <h3>Overzicht kernpijlers</h3>
-        """
-    
-        # ---------------------------
-        # PILLARS (zoals in app + extra uitleg)
-        # ---------------------------
-        for _, row in pivot.iterrows():
-    
-            pillar = row["pillar"]
-            score = round(row["score"], 1)
-    
-            title = pillar_data[pillar]["title"]
-            description = pillar_data[pillar]["description"]
-            meanings = pillar_data[pillar]["score_meaning"]
-    
-            # simpele interpretatie
-            if score <= 2:
-                interp = meanings["low"]
-            elif score <= 4:
-                interp = meanings["mid"]
-            elif score <= 5:
-                interp = meanings["good"]
-            else:
-                interp = meanings["high"]
-    
-            html += f"""
-            <div class="pillar">
-            
-                <div style="display:flex; justify-content:space-between; align-items:baseline;">
-                    <h3 style="margin:0; font-size:18px;">{title}</h3>
-                    <div style="font-size:13px; font-weight:bold; color:#2E86C1;">
-                        {score} / 7
-                    </div>
-                </div>
-            
-                <p style="margin-top:8px; font-size:14px;">
-                    {description}
-                </p>
-            
-                <p style="margin-top:10px; font-size:13px;">
-                    <b>Interpretatie</b>
-                </p>
-            
-                <p style="font-size:14px;">
-                    {interp}
-                </p>
-            
-            </div>
-            """     
-        # ---------------------------
-        # ADAPTIVITEIT (JOUW BESTAANDE FEEDBACK)
-        # ---------------------------
-        html += f"""
-        <div style="margin: 40px 0 30px 0;">
-            <hr style="margin-bottom:20px;">
-        
-            <h3>Je adaptiviteit</h3>
-        
-            <div style="margin-top:10px;">
-                {format_feedback(feedback(level))}
-            </div>
-        
-            <hr style="margin-top:20px;">
-        </div>
-        """
-    
-        # ---------------------------
-        # COMMERCIËLE + TWEEDE SCAN SECTIE
-        # ---------------------------
-        html += """
-        <h3>Verder verdiepen in adaptiviteit?</h3>
-    
-        <p>
-        Deze scan geeft je inzicht in je <b>persoonlijke adaptiviteit</b>: hoe jij zelf omgaat met verandering, leren, veerkracht en innovatie.
-        </p>
-    
-        <p>
-        Er is ook een tweede perspectief: de <b>context</b> waarin dit gedrag ontstaat.
-        Die scan helpt je begrijpen welke factoren in je omgeving jouw adaptief gedrag versterken of net belemmeren.
-        </p>
-    
-        <p>
-        Ontdek de systeemscan hier:<br>
-        <a href="https://systeemscan.streamlit.app/" target="_blank">
-        Systeemscan
-        </a>
-        </p>
-    
-        <hr>
-    
-        <h3>Vragen of samen verder aan de slag?</h3>
-    
-        <p>
-        Heb je vragen over de resultaten of wil je dit vertalen naar je team of organisatie,
-        dan gaan we graag met je in gesprek om de inzichten verder te duiden en te vertalen naar actie.
-        </p>
-    
-        <p>
-        Daarnaast begeleiden we organisaties in het breder uitrollen van deze scan en het omzetten van inzichten naar concrete interventies op team- en organisatieniveau.
-        </p>
-    
-        <p><b>Dank je wel voor je deelname.</b></p>
-    
-        </body>
-        </html>
-        """
-    
-        return html
-
-
-
-    result_html = build_report_html(level, pivot)
-
-    # ---------------------------
-    # EMAIL (SAFE: 1X ONLY)
-    # ---------------------------
-    if "email_sent" not in st.session_state:
-
-        try:
-            send_email(
-                st.session_state.email,
-                "Jouw Adaptiviteitsscan resultaat",
-                result_html
-            )
-            st.success("Resultaat is ook naar je e-mail gestuurd 📧")
-        except Exception as e:
-            st.error(f"E-mail kon niet verzonden worden: {e}")
-
-        st.session_state.email_sent = True
-
-    # ---------------------------
     # LAYOUT
     # ---------------------------
-    col1, col2 = st.columns([2, 2], gap="large")
+    st.markdown(f'<span class="section-pill">{T["profile"]}</span>', unsafe_allow_html=True)
+    st.title(T["thanks"])
+    st.markdown(f"### {T['profile']}")
+    st.write(T["profile_intro"])
 
-    with col1:
+    radar_column, summary_column = st.columns([1.2, .8], gap="large", vertical_alignment="top")
+    with radar_column:
+        st.subheader(T["core_profile"])
         radar_plot(pivot)
+    with summary_column:
+        with st.container(border=True):
+            st.subheader("Wat valt op?")
+            st.markdown(feedback(level).split("### Volgende stappen:")[0])
 
-    with col2:
-        with st.container(height=700):
+    st.markdown(f"## {T['pillars']}")
+    card_columns = st.columns(3, gap="medium")
+    for index, (_, row) in enumerate(pivot.iterrows()):
+        pillar = row["pillar"]
+        score = round(row["score"], 1)
+        title = pillar_data[pillar]["title"]
+        description = pillar_data[pillar]["description"]
+        explanation = get_score_explanation(round(score), pillar_data[pillar]["score_meaning"])
+        percentage = max(0, min(100, (score / 7) * 100))
 
-            st.markdown("## Kernpijlers")
-
-            for _, row in pivot.iterrows():
-                pillar = row["pillar"]
-                score = round(row["score"], 1)
-
-                title = pillar_data[pillar]["title"]
-                description = pillar_data[pillar]["description"]
-                meanings = pillar_data[pillar]["score_meaning"]
-
-                explanation = get_score_explanation(round(score), meanings)
-
-                st.markdown(f"### {title} — {score}/7")
-
-                st.markdown(f"""
-                {description}
-                
-                **Wat betekent mijn score?**  
-                {explanation}
-                """)
-
-                st.markdown("<hr style='margin:8px 0; opacity:0.3;'>",
-                            unsafe_allow_html=True)
+        card_html = f"""
+        <article class="pillar-card">
+            <h3>{title}</h3>
+            <p>{description}</p>
+            <div class="score-row">
+                <div class="score-track"><div class="score-fill" style="width:{percentage:.1f}%"></div></div>
+                <span class="score-value">{score} / 7</span>
+            </div>
+            <div class="interpretation-box">
+                <strong>{T['interpretation']}</strong>
+                <p>{explanation}</p>
+            </div>
+        </article>
+        """
+        with card_columns[index % 3]:
+            st.markdown(card_html, unsafe_allow_html=True)
 
     # ---------------------------
     # EXTRA FEEDBACK ONDERAAN
     # ---------------------------
-    st.subheader("Je adaptiviteit")
+    st.subheader(T["adaptivity"])
     st.markdown(feedback(level))
     st.markdown("---")
 
     # ---------------------------
     # RESET
     # ---------------------------
-    if st.button("Opnieuw invullen"):
+    if st.button(T["restart"]):
         st.session_state.step = 1
         st.session_state.answers = {}
-        st.session_state.email_sent = False
         st.rerun()
