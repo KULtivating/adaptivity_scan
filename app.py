@@ -219,6 +219,7 @@ with language_picker:
         options=list(LANGUAGE_NAMES),
         format_func=LANGUAGE_NAMES.get,
         key="language",
+        label_visibility="collapsed",
     )
 
 if st.query_params.get("lang") != LANGUAGE:
