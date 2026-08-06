@@ -1,4 +1,4 @@
-APP_BUILD = "2026-08-06-maturity-benchmark-legend-v2"
+APP_BUILD = "2026-08-06-radar-labels-from-pillar-titles-v3"
 
 import streamlit as st
 from datetime import datetime
@@ -12,7 +12,6 @@ from translations import (
     FEEDBACK_TRANSLATIONS,
     LANGUAGE_NAMES,
     PILLAR_INTERPRETATIONS,
-    PILLAR_RADAR_LABELS,
     PILLAR_TRANSLATIONS,
     QUESTION_TRANSLATIONS,
     SHORT_DESCRIPTIONS,
@@ -441,12 +440,33 @@ Kies één collega of team en help hen bewust om één verandering beter te begr
 
     return texts.get(level, "Geen feedback beschikbaar voor dit niveau.")
 
+def wrap_radar_title(title, max_line_length=21):
+    """Voeg alleen visuele regeleinden toe; de woorden komen uit de pijlertekst."""
+    words = str(title or "").split()
+    if not words:
+        return ""
+
+    lines = []
+    current = words[0]
+    for word in words[1:]:
+        candidate = f"{current} {word}"
+        if len(candidate) <= max_line_length:
+            current = candidate
+        else:
+            lines.append(current)
+            current = word
+    lines.append(current)
+    return "<br>".join(lines)
+
+
 def radar_plot(pivot):
     pivot = pivot.copy()
-    radar_labels = PILLAR_RADAR_LABELS.get(
-        LANGUAGE,
-        PILLAR_RADAR_LABELS["nl"],
-    )
+    # De zichtbare namen komen rechtstreeks uit dezelfde titelvelden als de
+    # pijlerkaarten. Zo kan de spiderplot nooit een afwijkende vertaling tonen.
+    radar_labels = {
+        code: wrap_radar_title(data["title"])
+        for code, data in pillar_data.items()
+    }
     pivot["pillar_label"] = pivot["pillar"].map(radar_labels)
 
     fig = px.line_polar(
