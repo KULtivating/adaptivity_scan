@@ -4,6 +4,8 @@ De itemcodes blijven in elke taal identiek. Daardoor veranderen vertalingen
 nooit de scoring of de koppeling met historische antwoorden.
 """
 
+TRANSLATIONS_BUILD = "2026-08-06-maturity-compact-interpretations-v1"
+
 LANGUAGE_NAMES = {"nl": "Nederlands", "fr": "Français", "en": "English"}
 
 UI_TEXTS = {
@@ -23,8 +25,8 @@ UI_TEXTS = {
         "interpretation": "Jouw interpretatie", "adaptivity": "Je adaptiviteit", "restart": "Opnieuw invullen",
         "what_stands_out": "Wat valt op?", "strongest": "Sterkste pijler", "development": "Grootste ontwikkelkans",
         "percentile": "Interpretatie", "no_norm": "Geen normdata",
-        "percentile_very_low": "Zeer laag", "percentile_low": "Eerder laag", "percentile_middle": "Rond het midden",
-        "percentile_high": "Eerder hoog", "percentile_very_high": "Zeer hoog",
+        "percentile_very_low": "Laagste 20%", "percentile_low": "Onder gemiddeld", "percentile_middle": "Gemiddeld",
+        "percentile_high": "Boven gemiddeld", "percentile_very_high": "Top 20%",
         "percentile_guide": "Pxx toont je positie ten opzichte van de externe normgroep. P76 betekent bijvoorbeeld dat je hoger scoort dan ongeveer 76% van die normgroep; het is geen percentage juiste antwoorden.",
         "percentile_tooltip": "P{p} betekent dat je hoger scoort dan ongeveer {p}% van de externe normgroep.",
         "scale": ["Nooit", "Zeer zelden", "Zelden", "Soms", "Regelmatig", "Vaak", "Altijd"],
@@ -45,30 +47,30 @@ UI_TEXTS = {
         "interpretation": "Votre interprétation", "adaptivity": "Votre adaptabilité", "restart": "Recommencer",
         "what_stands_out": "Que retenir ?", "strongest": "Pilier le plus fort", "development": "Principale opportunité de développement",
         "percentile": "Interprétation", "no_norm": "Pas de données normatives",
-        "percentile_very_low": "Très faible", "percentile_low": "Plutôt faible", "percentile_middle": "Dans la moyenne",
-        "percentile_high": "Plutôt élevé", "percentile_very_high": "Très élevé",
+        "percentile_very_low": "20 % les plus faibles", "percentile_low": "Sous la moyenne", "percentile_middle": "Moyenne",
+        "percentile_high": "Au-dessus de la moyenne", "percentile_very_high": "Top 20 %",
         "percentile_guide": "Pxx indique votre position par rapport au groupe de référence externe. P76 signifie, par exemple, que votre score est supérieur à celui d’environ 76 % de ce groupe ; il ne s’agit pas d’un pourcentage de bonnes réponses.",
         "percentile_tooltip": "P{p} signifie que votre score est supérieur à celui d’environ {p} % du groupe de référence externe.",
         "scale": ["Jamais", "Très rarement", "Rarement", "Parfois", "Régulièrement", "Souvent", "Toujours"],
     },
     "en": {
-        "app_title": "Adaptability Maturity Scan",
+        "app_title": "Adaptivity Maturity Scan",
         "app_intro": "Discover in just a few minutes how you approach change, learning, resilience and innovation.",
         "details_step": "Step 1 · Your details", "details_title": "Tell us a little about yourself",
-        "scan_step": "Step 2 · Adaptability scan", "scan_title": "For each statement, indicate how often it applies to you",
+        "scan_step": "Step 2 · Adaptivity scan", "scan_title": "For each statement, indicate how often it applies to you",
         "name": "Name", "email": "Email address (optional)",
         "email_help": "We only store this so that we may send you your result later. No email is sent now.",
         "role": "Role", "organisation": "Organisation", "start": "Start questionnaire",
         "submit": "Show my result", "missing": "Answer all questions to view your result.",
         "complete": "All questions have been answered.", "thanks": "Thank you for taking part",
-        "profile": "Your personal adaptability",
-        "profile_intro": "Adaptability describes how resiliently you deal with the present and how you prepare for what lies ahead.",
+        "profile": "Your personal adaptivity",
+        "profile_intro": "Adaptivity describes how resiliently you deal with the present and how you prepare for what lies ahead.",
         "core_profile": "Your profile at a glance", "pillars": "Your five core pillars",
-        "interpretation": "Your interpretation", "adaptivity": "Your adaptability", "restart": "Start again",
+        "interpretation": "Your interpretation", "adaptivity": "Your adaptivity", "restart": "Start again",
         "what_stands_out": "What stands out?", "strongest": "Strongest pillar", "development": "Main development opportunity",
         "percentile": "Interpretation", "no_norm": "No normative data",
-        "percentile_very_low": "Very low", "percentile_low": "Rather low", "percentile_middle": "Around the middle",
-        "percentile_high": "Rather high", "percentile_very_high": "Very high",
+        "percentile_very_low": "Bottom 20%", "percentile_low": "Below average", "percentile_middle": "Average",
+        "percentile_high": "Above average", "percentile_very_high": "Top 20%",
         "percentile_guide": "Pxx shows your position relative to the external reference group. P76, for example, means that you scored higher than approximately 76% of that group; it is not a percentage of correct answers.",
         "percentile_tooltip": "P{p} means that you scored higher than approximately {p}% of the external reference group.",
         "scale": ["Never", "Very rarely", "Rarely", "Sometimes", "Regularly", "Often", "Always"],
@@ -162,6 +164,273 @@ SHORT_DESCRIPTIONS = {
     },
 }
 
+
+PILLAR_RADAR_LABELS = {'nl': {'VA': 'Veranderattitude',
+        'VZ': 'Veerkracht<br>& Zelfregulatie',
+        'LO': 'Leermotivatie<br>& Ontwikkeling',
+        'VV': 'Vooruitzien<br>& Voorbereiden',
+        'CI': 'Creativiteit<br>& Innovatie'},
+ 'fr': {'VA': 'Attitude face<br>au changement',
+        'VZ': 'Résilience<br>& Autorégulation',
+        'LO': 'Motivation à apprendre<br>& Développement',
+        'VV': 'Anticipation<br>& Préparation',
+        'CI': 'Créativité<br>& Innovation'},
+ 'en': {'VA': 'Change<br>Attitude',
+        'VZ': 'Resilience<br>& Self-regulation',
+        'LO': 'Learning Motivation<br>& Development',
+        'VV': 'Anticipating<br>& Preparing',
+        'CI': 'Creativity<br>& Innovation'}}
+
+PILLAR_INTERPRETATIONS = {'nl': {'VA': {'low': 'Voor deze dimensie scoor je bij de laagste 20% van de benchmarkgroep. Verandering roept vaak '
+                      'terughoudendheid of weerstand op, waardoor nieuwe werkwijzen verkennen en mee richting geven '
+                      'meer energie kost. Dit is een duidelijke ontwikkelkans.',
+               'below_average': 'Voor deze dimensie scoor je onder het gemiddelde van de benchmarkgroep. Je staat '
+                                'eerder afwachtend of kritisch tegenover verandering. Je ziet mogelijk de noodzaak, '
+                                'maar vertaalt die nog niet altijd in actieve steun of eigenaarschap.',
+               'average': 'Voor deze dimensie scoor je rond het gemiddelde van de benchmarkgroep. Je houding tegenover '
+                          'verandering is meestal werkbaar: bij duidelijke meerwaarde beweeg je mee, terwijl '
+                          'onzekerheid of weinig inspraak je kritischer of terughoudender kan maken.',
+               'above_average': 'Voor deze dimensie scoor je boven het gemiddelde van de benchmarkgroep. Je benadert '
+                                'verandering meestal constructief, denkt mee en neemt initiatief. Die open houding '
+                                'helpt ook bij onzekerheid beweging te creëren.',
+               'high': 'Voor deze dimensie behoor je tot de hoogste 20% van de benchmarkgroep. Je gaat actief en '
+                       'constructief met verandering om, geeft ze betekenis en neemt gemakkelijk eigenaarschap. Met je '
+                       'houding neem je vaak ook anderen mee.'},
+        'VZ': {'low': 'Voor deze dimensie scoor je bij de laagste 20% van de benchmarkgroep. Druk, tegenslag of '
+                      'onverwachte gebeurtenissen verstoren je functioneren relatief sterk en herstel vraagt vaak tijd '
+                      'of ondersteuning. Dit is een belangrijke ontwikkelkans.',
+               'below_average': 'Voor deze dimensie scoor je onder het gemiddelde van de benchmarkgroep. Je vangt '
+                                'moeilijke situaties op, maar je evenwicht en herstel zijn niet altijd stabiel. Bij '
+                                'aanhoudende druk wordt het lastiger om aandacht, emoties en energie gericht te '
+                                'reguleren.',
+               'average': 'Voor deze dimensie scoor je rond het gemiddelde van de benchmarkgroep. Je blijft meestal '
+                          'voldoende functioneren en herstelt doorgaans na tegenslag. Bij langdurige druk of meerdere '
+                          'veranderingen kan extra structuur of steun nodig zijn.',
+               'above_average': 'Voor deze dimensie scoor je boven het gemiddelde van de benchmarkgroep. Je blijft '
+                                'meestal rustig en doelgericht onder druk en herstelt vlot na tegenslag. Zo blijf je '
+                                'ook in complexe situaties keuzes maken en je aanpak bijsturen.',
+               'high': 'Voor deze dimensie behoor je tot de hoogste 20% van de benchmarkgroep. Je blijft uitzonderlijk '
+                       'stabiel onder druk, herstelt snel en reguleert je aandacht en energie sterk. In moeilijke '
+                       'omstandigheden bied je vaak ook anderen rust en houvast.'},
+        'LO': {'low': 'Voor deze dimensie scoor je bij de laagste 20% van de benchmarkgroep. Je zoekt momenteel weinig '
+                      'actief naar feedback, oefenkansen of nieuwe kennis. Daardoor zet je ervaringen minder '
+                      'vanzelfsprekend om in ontwikkeling. Dit is een duidelijke groeikans.',
+               'below_average': 'Voor deze dimensie scoor je onder het gemiddelde van de benchmarkgroep. Je leert '
+                                'vooral wanneer de taak of situatie dat vraagt. Zelf leerdoelen kiezen, feedback '
+                                'ophalen en inzichten toepassen gebeurt nog minder consequent.',
+               'average': 'Voor deze dimensie scoor je rond het gemiddelde van de benchmarkgroep. Je staat open voor '
+                          'leren en gebruikt relevante feedback wanneer die beschikbaar is. Hoe gericht je oefent en '
+                          'ontwikkeling volhoudt, verschilt nog per context.',
+               'above_average': 'Voor deze dimensie scoor je boven het gemiddelde van de benchmarkgroep. Je zoekt '
+                                'actief kennis, feedback en kansen om te groeien. Nieuwe inzichten vertaal je meestal '
+                                'naar je werk en zo versterk je gericht je vermogen om met verandering om te gaan.',
+               'high': 'Voor deze dimensie behoor je tot de hoogste 20% van de benchmarkgroep. Leren en ontwikkelen '
+                       'zijn een sterke motor in je werk. Je zoekt systematisch feedback en nieuwe perspectieven, past '
+                       'inzichten toe en stimuleert vaak ook het leren van anderen.'},
+        'VV': {'low': 'Voor deze dimensie scoor je bij de laagste 20% van de benchmarkgroep. Je aandacht ligt vooral '
+                      'bij wat vandaag speelt, waardoor je vroege signalen en toekomstige gevolgen minder snel '
+                      'opmerkt. Je voorbereiding is vaak reactief en vormt een duidelijke ontwikkelkans.',
+               'below_average': 'Voor deze dimensie scoor je onder het gemiddelde van de benchmarkgroep. Je kijkt soms '
+                                'vooruit, maar vertaalt signalen nog niet consequent naar scenario’s of voorbereiding. '
+                                'Daardoor kunnen veranderingen je vaker verrassen dan nodig.',
+               'average': 'Voor deze dimensie scoor je rond het gemiddelde van de benchmarkgroep. Je houdt rekening '
+                          'met wat eraan komt en bereidt je voor zodra signalen duidelijk zijn. Bij meer onzekerheid '
+                          'of een langere tijdshorizon wordt vooruitdenken minder systematisch.',
+               'above_average': 'Voor deze dimensie scoor je boven het gemiddelde van de benchmarkgroep. Je merkt '
+                                'relevante signalen vroeg op en vertaalt ze naar haalbare voorbereidingen. Zo houd je '
+                                'opties open en hoef je minder reactief te handelen.',
+               'high': 'Voor deze dimensie behoor je tot de hoogste 20% van de benchmarkgroep. Vooruitkijken is een '
+                       'duidelijke sterkte: je verbindt signalen, verkent scenario’s en bereidt je tijdig voor. Zo '
+                       'help je vaak ook anderen om toekomstige verandering concreet te maken.'},
+        'CI': {'low': 'Voor deze dimensie scoor je bij de laagste 20% van de benchmarkgroep. Je grijpt vaak terug naar '
+                      'bekende oplossingen en experimenteert weinig met alternatieven. Daardoor blijven mogelijke '
+                      'verbeteringen sneller onbenut. Dit is een duidelijke ontwikkelkans.',
+               'below_average': 'Voor deze dimensie scoor je onder het gemiddelde van de benchmarkgroep. Je ziet soms '
+                                'nieuwe mogelijkheden, maar zet ze nog weinig om in concrete tests of verbeteringen. '
+                                'Bij onzekerheid krijgt de vertrouwde aanpak meestal voorrang.',
+               'average': 'Voor deze dimensie scoor je rond het gemiddelde van de benchmarkgroep. Je komt met '
+                          'bruikbare ideeën wanneer de situatie daarom vraagt. Of je ermee experimenteert en ze '
+                          'realiseert, hangt nog sterk af van tijd, ruimte en steun.',
+               'above_average': 'Voor deze dimensie scoor je boven het gemiddelde van de benchmarkgroep. Je ontwikkelt '
+                                'geregeld nieuwe ideeën en test alternatieven doelgericht. Zo verbind je creativiteit '
+                                'meestal met praktische verbetering in je werk.',
+               'high': 'Voor deze dimensie behoor je tot de hoogste 20% van de benchmarkgroep. Creatief vernieuwen is '
+                       'een duidelijke sterkte: je ziet onverwachte mogelijkheden, experimenteert doelgericht en zet '
+                       'ideeën om in zichtbare verbetering. Daarmee stimuleer je vaak ook anderen.'}},
+ 'fr': {'VA': {'low': 'Pour cette dimension, votre score se situe parmi les 20 % les plus faibles du groupe de '
+                      'référence. Le changement suscite souvent réserve ou résistance, ce qui demande davantage '
+                      'd’énergie pour explorer de nouvelles méthodes et contribuer à l’orientation. C’est une occasion '
+                      'de développement claire.',
+               'below_average': 'Pour cette dimension, votre score se situe sous la moyenne du groupe de référence. '
+                                'Vous adoptez plus souvent une attitude prudente ou critique face au changement. Vous '
+                                'en voyez peut-être la nécessité, sans toujours la traduire en soutien actif ou en '
+                                'prise de responsabilité.',
+               'average': 'Pour cette dimension, votre score se situe autour de la moyenne du groupe de référence. '
+                          'Votre attitude face au changement est généralement constructive : vous avancez lorsque la '
+                          'valeur ajoutée est claire, tandis que l’incertitude ou le manque de participation peuvent '
+                          'vous rendre plus critique ou réservé.',
+               'above_average': 'Pour cette dimension, votre score se situe au-dessus de la moyenne du groupe de '
+                                'référence. Vous abordez généralement le changement de manière constructive, '
+                                'contribuez à la réflexion et prenez des initiatives. Cette ouverture aide aussi à '
+                                'créer du mouvement dans l’incertitude.',
+               'high': 'Pour cette dimension, votre score se situe parmi les 20 % les plus élevés du groupe de '
+                       'référence. Vous abordez le changement de manière active et constructive, lui donnez du sens et '
+                       'prenez facilement vos responsabilités. Votre attitude entraîne souvent aussi les autres.'},
+        'VZ': {'low': 'Pour cette dimension, votre score se situe parmi les 20 % les plus faibles du groupe de '
+                      'référence. La pression, les revers ou les imprévus perturbent relativement fortement votre '
+                      'fonctionnement, et la récupération demande souvent du temps ou du soutien. C’est une occasion '
+                      'de développement importante.',
+               'below_average': 'Pour cette dimension, votre score se situe sous la moyenne du groupe de référence. '
+                                'Vous faites face aux situations difficiles, mais votre équilibre et votre '
+                                'récupération ne sont pas toujours stables. Sous une pression prolongée, il devient '
+                                'plus difficile de réguler votre attention, vos émotions et votre énergie.',
+               'average': 'Pour cette dimension, votre score se situe autour de la moyenne du groupe de référence. '
+                          'Vous restez généralement opérationnel et récupérez après un revers. En cas de pression '
+                          'prolongée ou de changements multiples, davantage de structure ou de soutien peut être '
+                          'utile.',
+               'above_average': 'Pour cette dimension, votre score se situe au-dessus de la moyenne du groupe de '
+                                'référence. Vous restez généralement calme et concentré sous pression et récupérez '
+                                'rapidement après un revers. Vous continuez ainsi à décider et à ajuster votre '
+                                'approche dans les situations complexes.',
+               'high': 'Pour cette dimension, votre score se situe parmi les 20 % les plus élevés du groupe de '
+                       'référence. Vous restez exceptionnellement stable sous pression, récupérez rapidement et '
+                       'régulez fortement votre attention et votre énergie. Dans les situations difficiles, vous '
+                       'apportez souvent calme et repères aux autres.'},
+        'LO': {'low': 'Pour cette dimension, votre score se situe parmi les 20 % les plus faibles du groupe de '
+                      'référence. Vous recherchez actuellement peu de feedback, d’occasions de pratiquer ou de '
+                      'nouvelles connaissances. Vos expériences se transforment donc moins spontanément en '
+                      'développement. C’est une occasion de croissance claire.',
+               'below_average': 'Pour cette dimension, votre score se situe sous la moyenne du groupe de référence. '
+                                'Vous apprenez surtout lorsque la tâche ou la situation l’exige. Définir vous-même des '
+                                'objectifs d’apprentissage, demander du feedback et appliquer les acquis reste moins '
+                                'régulier.',
+               'average': 'Pour cette dimension, votre score se situe autour de la moyenne du groupe de référence. '
+                          'Vous êtes ouvert à l’apprentissage et utilisez le feedback pertinent lorsqu’il est '
+                          'disponible. La régularité avec laquelle vous vous exercez et poursuivez votre développement '
+                          'varie encore selon le contexte.',
+               'above_average': 'Pour cette dimension, votre score se situe au-dessus de la moyenne du groupe de '
+                                'référence. Vous recherchez activement des connaissances, du feedback et des occasions '
+                                'de progresser. Vous transposez généralement les nouveaux acquis dans votre travail et '
+                                'renforcez ainsi votre capacité à faire face au changement.',
+               'high': 'Pour cette dimension, votre score se situe parmi les 20 % les plus élevés du groupe de '
+                       'référence. L’apprentissage et le développement sont un moteur puissant dans votre travail. '
+                       'Vous recherchez systématiquement du feedback et de nouvelles perspectives, appliquez les '
+                       'acquis et stimulez souvent l’apprentissage des autres.'},
+        'VV': {'low': 'Pour cette dimension, votre score se situe parmi les 20 % les plus faibles du groupe de '
+                      'référence. Votre attention porte surtout sur le présent, si bien que vous repérez moins vite '
+                      'les signaux précoces et les conséquences futures. Votre préparation reste souvent réactive et '
+                      'constitue une occasion de développement claire.',
+               'below_average': 'Pour cette dimension, votre score se situe sous la moyenne du groupe de référence. '
+                                'Vous regardez parfois vers l’avenir, mais ne traduisez pas encore systématiquement '
+                                'les signaux en scénarios ou en préparation. Les changements peuvent donc vous '
+                                'surprendre plus souvent que nécessaire.',
+               'average': 'Pour cette dimension, votre score se situe autour de la moyenne du groupe de référence. '
+                          'Vous tenez compte de ce qui arrive et vous préparez dès que les signaux deviennent clairs. '
+                          'Lorsque l’incertitude augmente ou que l’horizon s’allonge, votre anticipation devient moins '
+                          'systématique.',
+               'above_average': 'Pour cette dimension, votre score se situe au-dessus de la moyenne du groupe de '
+                                'référence. Vous repérez tôt les signaux pertinents et les traduisez en préparations '
+                                'réalisables. Vous gardez ainsi plusieurs options ouvertes et devez moins souvent agir '
+                                'de manière réactive.',
+               'high': 'Pour cette dimension, votre score se situe parmi les 20 % les plus élevés du groupe de '
+                       'référence. L’anticipation est une force claire : vous reliez les signaux, explorez des '
+                       'scénarios et vous préparez à temps. Vous aidez ainsi souvent les autres à concrétiser les '
+                       'changements futurs.'},
+        'CI': {'low': 'Pour cette dimension, votre score se situe parmi les 20 % les plus faibles du groupe de '
+                      'référence. Vous revenez souvent à des solutions connues et expérimentez peu d’alternatives. Des '
+                      'améliorations possibles restent donc plus vite inexploitées. C’est une occasion de '
+                      'développement claire.',
+               'below_average': 'Pour cette dimension, votre score se situe sous la moyenne du groupe de référence. '
+                                'Vous voyez parfois de nouvelles possibilités, mais les transformez encore peu en '
+                                'tests ou en améliorations concrètes. Dans l’incertitude, l’approche habituelle garde '
+                                'généralement la priorité.',
+               'average': 'Pour cette dimension, votre score se situe autour de la moyenne du groupe de référence. '
+                          'Vous proposez des idées utiles lorsque la situation le demande. Le fait de les tester et de '
+                          'les réaliser dépend encore fortement du temps, de l’espace et du soutien disponibles.',
+               'above_average': 'Pour cette dimension, votre score se situe au-dessus de la moyenne du groupe de '
+                                'référence. Vous développez régulièrement de nouvelles idées et testez des '
+                                'alternatives de manière ciblée. Vous reliez ainsi le plus souvent la créativité à des '
+                                'améliorations pratiques dans votre travail.',
+               'high': 'Pour cette dimension, votre score se situe parmi les 20 % les plus élevés du groupe de '
+                       'référence. Innover de manière créative est une force claire : vous voyez des possibilités '
+                       'inattendues, expérimentez de manière ciblée et transformez les idées en améliorations '
+                       'visibles. Vous stimulez ainsi souvent aussi les autres.'}},
+ 'en': {'VA': {'low': 'For this dimension, your score is in the bottom 20% of the benchmark group. Change often '
+                      'triggers hesitation or resistance, so exploring new ways of working and helping shape direction '
+                      'takes more energy. This is a clear development opportunity.',
+               'below_average': 'For this dimension, your score is below the benchmark group average. You tend to be '
+                                'more cautious or critical about change. You may recognise the need, but do not yet '
+                                'always translate it into active support or ownership.',
+               'average': 'For this dimension, your score is around the benchmark group average. Your attitude towards '
+                          'change is generally workable: you move with clear added value, while uncertainty or limited '
+                          'involvement can make you more critical or hesitant.',
+               'above_average': 'For this dimension, your score is above the benchmark group average. You generally '
+                                'approach change constructively, contribute ideas and take initiative. This openness '
+                                'also helps create movement under uncertainty.',
+               'high': 'For this dimension, your score is in the top 20% of the benchmark group. You deal with change '
+                       'actively and constructively, give it meaning and readily take ownership. Your attitude often '
+                       'brings others along as well.'},
+        'VZ': {'low': 'For this dimension, your score is in the bottom 20% of the benchmark group. Pressure, setbacks '
+                      'or unexpected events disrupt your functioning relatively strongly, and recovery often takes '
+                      'time or support. This is an important development opportunity.',
+               'below_average': 'For this dimension, your score is below the benchmark group average. You cope with '
+                                'difficult situations, but your balance and recovery are not always stable. Under '
+                                'sustained pressure, it becomes harder to regulate attention, emotions and energy.',
+               'average': 'For this dimension, your score is around the benchmark group average. You generally '
+                          'continue to function adequately and recover after setbacks. Prolonged pressure or several '
+                          'simultaneous changes may require extra structure or support.',
+               'above_average': 'For this dimension, your score is above the benchmark group average. You usually '
+                                'remain calm and focused under pressure and recover quickly after setbacks. This helps '
+                                'you keep making decisions and adjusting your approach in complex situations.',
+               'high': 'For this dimension, your score is in the top 20% of the benchmark group. You remain '
+                       'exceptionally stable under pressure, recover quickly and regulate your attention and energy '
+                       'strongly. In difficult circumstances, you often provide calm and direction to others.'},
+        'LO': {'low': 'For this dimension, your score is in the bottom 20% of the benchmark group. You currently make '
+                      'limited active use of feedback, practice opportunities or new knowledge. Experiences are '
+                      'therefore less readily turned into development. This is a clear growth opportunity.',
+               'below_average': 'For this dimension, your score is below the benchmark group average. You mainly learn '
+                                'when the task or situation requires it. Setting your own learning goals, seeking '
+                                'feedback and applying insights still happens less consistently.',
+               'average': 'For this dimension, your score is around the benchmark group average. You are open to '
+                          'learning and use relevant feedback when it is available. How deliberately you practise and '
+                          'sustain development still varies by context.',
+               'above_average': 'For this dimension, your score is above the benchmark group average. You actively '
+                                'seek knowledge, feedback and opportunities to grow. You usually apply new insights in '
+                                'your work, strengthening your ability to deal with change.',
+               'high': 'For this dimension, your score is in the top 20% of the benchmark group. Learning and '
+                       'development are a strong driver in your work. You systematically seek feedback and new '
+                       'perspectives, apply insights and often encourage others to learn as well.'},
+        'VV': {'low': 'For this dimension, your score is in the bottom 20% of the benchmark group. Your attention is '
+                      'mainly on what is happening today, so you notice early signals and future consequences less '
+                      'quickly. Preparation is often reactive and is a clear development opportunity.',
+               'below_average': 'For this dimension, your score is below the benchmark group average. You sometimes '
+                                'look ahead, but do not yet consistently translate signals into scenarios or '
+                                'preparation. Changes may therefore surprise you more often than necessary.',
+               'average': 'For this dimension, your score is around the benchmark group average. You consider what is '
+                          'coming and prepare once signals are clear. With greater uncertainty or a longer time '
+                          'horizon, your forward thinking becomes less systematic.',
+               'above_average': 'For this dimension, your score is above the benchmark group average. You notice '
+                                'relevant signals early and translate them into practical preparation. This keeps '
+                                'options open and reduces the need to act reactively.',
+               'high': 'For this dimension, your score is in the top 20% of the benchmark group. Looking ahead is a '
+                       'clear strength: you connect signals, explore scenarios and prepare in time. This often helps '
+                       'others make future change concrete.'},
+        'CI': {'low': 'For this dimension, your score is in the bottom 20% of the benchmark group. You often fall back '
+                      'on familiar solutions and experiment little with alternatives. Potential improvements are '
+                      'therefore more likely to remain unused. This is a clear development opportunity.',
+               'below_average': 'For this dimension, your score is below the benchmark group average. You sometimes '
+                                'see new possibilities, but do not yet turn them into concrete tests or improvements '
+                                'very often. Under uncertainty, the familiar approach usually takes priority.',
+               'average': 'For this dimension, your score is around the benchmark group average. You generate useful '
+                          'ideas when the situation calls for them. Whether you test and realise them still depends '
+                          'strongly on available time, space and support.',
+               'above_average': 'For this dimension, your score is above the benchmark group average. You regularly '
+                                'develop new ideas and test alternatives deliberately. This usually connects '
+                                'creativity with practical improvement in your work.',
+               'high': 'For this dimension, your score is in the top 20% of the benchmark group. Creative renewal is a '
+                       'clear strength: you see unexpected possibilities, experiment deliberately and turn ideas into '
+                       'visible improvements. This often encourages others as well.'}}}
+
 PILLAR_TRANSLATIONS = {
     "fr": {
         "VA": {"title": "Ouverture au changement", "description": "Ce pilier décrit votre réaction émotionnelle, cognitive et comportementale au changement dans votre environnement de travail.", "score_meaning": {
@@ -176,7 +445,7 @@ PILLAR_TRANSLATIONS = {
             "good": "Votre score est plutôt élevé. Vous restez généralement stable sous pression et vous vous adaptez aisément aux nouvelles circonstances.",
             "high": "Votre score est très élevé. Vous gérez très bien la pression et le changement et vous passez rapidement d’une situation à l’autre.",
         }},
-        "LO": {"title": "Apprentisage et développement continu", "description": "Ce pilier décrit dans quelle mesure vous investissez activement dans l’apprentissage et votre développement.", "score_meaning": {
+        "LO": {"title": "Apprentissage et développement continu", "description": "Ce pilier décrit dans quelle mesure vous investissez activement dans l’apprentissage et votre développement.", "score_meaning": {
             "low": "Votre score est plutôt faible. Vous apprenez surtout lorsque votre travail l’exige et votre développement reste principalement réactif.",
             "mid": "Votre score se situe dans la moyenne. Vous saisissez régulièrement les occasions d’apprendre, sans toujours piloter votre développement de façon systématique.",
             "good": "Votre score est plutôt élevé. Vous investissez activement dans votre apprentissage et recherchez régulièrement des moyens d’améliorer vos compétences.",
@@ -236,7 +505,7 @@ SUMMARY_TRANSLATIONS = {
         4: "Vous anticipez et vous préparez consciemment aux changements futurs.", 5: "Vous créez activement le changement et aidez les autres à progresser.",
     },
     "en": {
-        0: "Your adaptability is still at an early stage of development.", 1: "You cooperate reliably with change when needed.",
+        0: "Your adaptivity is still at an early stage of development.", 1: "You cooperate reliably with change when needed.",
         2: "You adapt well when change occurs.", 3: "You respond flexibly and focus on solutions in changing situations.",
         4: "You think ahead and consciously prepare for future change.", 5: "You actively create change and help others grow with it.",
     },
