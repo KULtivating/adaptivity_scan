@@ -1,5 +1,8 @@
+APP_BUILD = "2026-08-06-maturity-compact-interpretations-v1"
+
 import streamlit as st
 from datetime import datetime
+import html as html_lib
 import pandas as pd
 import plotly.express as px
 import gspread
@@ -8,6 +11,8 @@ from google.oauth2.service_account import Credentials
 from translations import (
     FEEDBACK_TRANSLATIONS,
     LANGUAGE_NAMES,
+    PILLAR_INTERPRETATIONS,
+    PILLAR_RADAR_LABELS,
     PILLAR_TRANSLATIONS,
     QUESTION_TRANSLATIONS,
     SHORT_DESCRIPTIONS,
@@ -19,7 +24,7 @@ from translations import (
 # APP CONFIG
 # ---------------------------
 st.set_page_config(
-    page_title="Adaptability Scan",
+    page_title="Adaptivity Scan",
     page_icon="🌱",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -436,38 +441,35 @@ Kies één collega of team en help hen bewust om één verandering beter te begr
 
     return texts.get(level, "Geen feedback beschikbaar voor dit niveau.")
 
-pillar_labels = {
-    "VA": "Veranderattitude",
-    "VZ": "Veerkracht<br>& Zelfregulatie",
-    "LO": "Leermotivatie<br>& Ontwikkeling",
-    "VV": "Vooruitzien<br>& Voorbereiden",
-    "CI": "Creativiteit<br>& Innovatie"
-}
-
 def radar_plot(pivot):
-
     pivot = pivot.copy()
-    pivot["pillar_label"] = pivot["pillar"].map(pillar_labels)
+    radar_labels = PILLAR_RADAR_LABELS.get(
+        LANGUAGE,
+        PILLAR_RADAR_LABELS["nl"],
+    )
+    pivot["pillar_label"] = pivot["pillar"].map(radar_labels)
 
     fig = px.line_polar(
         pivot,
         r="score",
         theta="pillar_label",
         line_close=True,
-        range_r=[1, 7]
+        range_r=[1, 7],
     )
-
     fig.update_traces(fill="toself")
-
     fig.update_layout(
-        margin=dict(l=100, r=100, t=40, b=40),
+        height=520,
+        margin=dict(l=145, r=145, t=55, b=70),
         polar=dict(
+            domain=dict(x=[0.08, 0.92], y=[0.08, 0.95]),
             angularaxis=dict(
-                tickangle=0  # or -45 for long labels
-            )
-        )
+                tickangle=0,
+                tickfont=dict(size=12),
+            ),
+            radialaxis=dict(tickfont=dict(size=10)),
+        ),
+        showlegend=False,
     )
-
     st.plotly_chart(fig, use_container_width=True)
 
 pillar_data = {
@@ -634,18 +636,68 @@ def get_percentile(pillar_code, score):
     return 100.0
 
 
-def percentile_label(percentile):
+PERCENTILE_STYLES = {
+    "low": {"background": "#FCE8EE", "accent": "#B9385A", "text": "#7A1731"},
+    "below_average": {"background": "#FFF3E2", "accent": "#B36B00", "text": "#7A4600"},
+    "average": {"background": "#EAF2F6", "accent": "#0F566B", "text": "#0F566B"},
+    "above_average": {"background": "#E6F4F0", "accent": "#2E7D6B", "text": "#205E51"},
+    "high": {"background": "#DDF1E9", "accent": "#146B52", "text": "#0E523F"},
+    "unavailable": {"background": "#F1F3F5", "accent": "#7C8A91", "text": "#56636A"},
+}
+
+
+def percentile_band(percentile):
     if percentile is None:
-        return T["no_norm"]
-    if percentile < 10:
-        return T["percentile_very_low"]
-    if percentile < 30:
-        return T["percentile_low"]
-    if percentile <= 70:
-        return T["percentile_middle"]
-    if percentile <= 90:
-        return T["percentile_high"]
-    return T["percentile_very_high"]
+        return "unavailable"
+    if percentile < 20:
+        return "low"
+    if percentile < 40:
+        return "below_average"
+    if percentile < 60:
+        return "average"
+    if percentile < 80:
+        return "above_average"
+    return "high"
+
+
+def percentile_label(percentile):
+    key = percentile_band(percentile)
+    return {
+        "low": T["percentile_very_low"],
+        "below_average": T["percentile_low"],
+        "average": T["percentile_middle"],
+        "above_average": T["percentile_high"],
+        "high": T["percentile_very_high"],
+        "unavailable": T["no_norm"],
+    }[key]
+
+
+def pillar_interpretation(pillar, percentile):
+    band = percentile_band(percentile)
+    texts = PILLAR_INTERPRETATIONS.get(
+        LANGUAGE,
+        PILLAR_INTERPRETATIONS["nl"],
+    )
+    return texts.get(pillar, {}).get(band, T["no_norm"])
+
+
+def feedback_intro(level):
+    text = feedback(level).strip()
+    return text.split("\n\n###", 1)[0].strip()
+
+
+def feedback_actions(level):
+    text = feedback(level).strip()
+    marker = text.find("###")
+    return text[marker:].strip() if marker >= 0 else ""
+
+
+def paragraphs_html(text):
+    return "".join(
+        f"<p>{html_lib.escape(paragraph.strip())}</p>"
+        for paragraph in text.split("\n\n")
+        if paragraph.strip()
+    )
 
 
 def short_summary(level):
@@ -743,34 +795,65 @@ h1, h2, h3 { color: var(--primary) !important; }
     grid-column: span 2;
     min-height: 100%;
     padding: 1.1rem;
-    border: 1px solid var(--line);
-    border: 1.5px solid var(--primary);
+    border: 1.5px solid var(--band-accent, var(--primary));
     border-radius: 16px;
     background: white;
     box-shadow: 0 8px 22px rgba(15, 86, 107, .07);
     display: flex;
     flex-direction: column;
+    position: relative;
 }
 .pillar-card:nth-child(4) { grid-column: 2 / span 2; }
 .pillar-card:nth-child(5) { grid-column: 4 / span 2; }
-.pillar-header { display:grid; grid-template-columns:48px 1fr; gap:.75rem; align-items:start; }
+.pillar-header { display:grid; grid-template-columns:48px minmax(0,1fr); gap:.75rem; align-items:start; padding-right:7.8rem; min-height:54px; }
 .pillar-icon {
     width:46px; height:46px; border-radius:50%; background:var(--primary); color:white;
     display:grid; place-items:center; flex:none;
 }
 .pillar-icon svg { width:68%; height:68%; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
-.pillar-card h3 { font-size: 1.04rem; line-height:1.18; margin:0 0 .4rem; }
-.pillar-card p { font-size: .88rem; line-height:1.42; margin:0; }
+.pillar-card h3 { font-size:1.04rem; line-height:1.18; margin:.15rem 0 0; overflow-wrap:normal; word-break:normal; hyphens:auto; }
+.pillar-card p { font-size:.88rem; line-height:1.42; margin:0; }
+.pillar-description { min-height:4.4rem; margin:.65rem 0 .15rem !important; }
 .score-row { display:flex; align-items:center; gap:.75rem; margin:.9rem 0; }
 .score-track { flex:1; height:9px; border-radius:999px; background:#e5f0f3; overflow:hidden; }
-.score-fill { height:100%; border-radius:999px; background:linear-gradient(90deg, var(--blue), var(--primary)); }
+.score-fill { height:100%; border-radius:999px; background:linear-gradient(90deg, var(--blue), var(--band-accent, var(--primary))); }
 .score-value { color:var(--primary); font-weight:800; white-space:nowrap; }
-.percentile-badge { display:inline-grid; grid-template-columns:auto auto; gap:.1rem .45rem; align-items:center; width:max-content; padding:.4rem .65rem; border-radius:10px; background:#fff7eb; color:var(--primary); margin-bottom:.75rem; }
-.percentile-badge b { font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; }
-.percentile-badge strong { font-size:1rem; }
-.percentile-badge small { grid-column:1 / -1; color:var(--muted); font-weight:700; }
-.interpretation-box { padding:.8rem; border-radius:10px; background:var(--light-blue); margin-top:auto; }
-.interpretation-box strong { color:var(--primary); }
+.percentile-badge {
+    position:absolute;
+    top:1rem;
+    right:1rem;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    max-width:7.2rem;
+    padding:.42rem .68rem;
+    border-radius:999px;
+    background:var(--band-bg, #EAF2F6);
+    color:var(--band-text, var(--primary));
+    font-size:.69rem;
+    font-weight:800;
+    line-height:1.15;
+    text-align:center;
+    white-space:normal;
+}
+.interpretation-box {
+    padding:.85rem;
+    border-radius:10px;
+    background:var(--band-bg, var(--light-blue));
+    border-left:4px solid var(--band-accent, var(--primary));
+    margin-top:auto;
+    min-height:9rem;
+}
+.interpretation-box strong { color:var(--band-text, var(--primary)); }
+.profile-intro-card {
+    padding:1rem 1.15rem;
+    margin:.35rem 0 1.25rem;
+    border-left:5px solid var(--primary);
+    border-radius:14px;
+    background:var(--light-blue);
+}
+.profile-intro-card .profile-lead { font-weight:800; color:var(--primary); margin:0 0 .45rem; }
+.profile-intro-card p:last-child { margin-bottom:0; }
 .profile-summary-card { padding:1.15rem; border:1px solid var(--line); border-left:5px solid var(--primary); border-radius:16px; background:var(--light-blue); min-height:100%; }
 .profile-summary-card h3 { margin-top:0; }
 .summary-stat { padding:.7rem 0; border-bottom:1px solid rgba(15,86,107,.16); }
@@ -1015,10 +1098,15 @@ elif st.session_state.step == 3:
     # ---------------------------
     # LAYOUT
     # ---------------------------
-    st.markdown(f'<span class="section-pill">{T["profile"]}</span>', unsafe_allow_html=True)
     st.title(T["thanks"])
-    st.markdown(f"### {T['profile']}")
-    st.write(T["profile_intro"])
+    st.markdown(f"## {T['profile']}")
+    profile_intro_html = (
+        '<div class="profile-intro-card">'
+        f'<p class="profile-lead">{html_lib.escape(short_summary(level))}</p>'
+        f'{paragraphs_html(feedback_intro(level))}'
+        '</div>'
+    )
+    st.markdown(profile_intro_html, unsafe_allow_html=True)
 
     profile_rows = []
     for _, row in pivot.iterrows():
@@ -1032,8 +1120,8 @@ elif st.session_state.step == 3:
             "percentile": percentile,
             "percentile_label": percentile_label(percentile),
         })
-    strongest = max(profile_rows, key=lambda item: item["score"])
-    weakest = min(profile_rows, key=lambda item: item["score"])
+    strongest = max(profile_rows, key=lambda item: item["percentile"] if item["percentile"] is not None else -1)
+    weakest = min(profile_rows, key=lambda item: item["percentile"] if item["percentile"] is not None else 101)
 
     radar_column, summary_column = st.columns([1.2, .8], gap="large", vertical_alignment="top")
     with radar_column:
@@ -1066,28 +1154,43 @@ elif st.session_state.step == 3:
         score = round(raw_score, 1)
         title = pillar_data[pillar]["title"]
         description = PILLAR_SHORT_DESCRIPTIONS[pillar]
-        explanation = get_score_explanation(round(score), pillar_data[pillar]["score_meaning"])
         score_percentage = max(0, min(100, (raw_score / 7) * 100))
         percentile = get_percentile(pillar, raw_score)
         percentile_text = percentile_label(percentile)
+        band = percentile_band(percentile)
+        style = PERCENTILE_STYLES[band]
+        explanation = pillar_interpretation(pillar, percentile)
+        percentile_value = f"P{percentile:.0f}" if percentile is not None else T["no_norm"]
+        tooltip = (
+            T["percentile_tooltip"].format(p=f"{percentile:.0f}")
+            if percentile is not None
+            else T["no_norm"]
+        )
+        card_style = (
+            f'--band-bg:{style["background"]};'
+            f'--band-accent:{style["accent"]};'
+            f'--band-text:{style["text"]};'
+        )
 
         # Zonder regeleindes: anders kan Markdown ingesprongen HTML na kaart 1
         # als een codeblok tonen in plaats van als onderdeel van hetzelfde grid.
         card_html = (
-            '<article class="pillar-card">'
+            f'<article class="pillar-card" style="{card_style}">'
+            f'<span class="percentile-badge" title="{html_lib.escape(tooltip)}">'
+            f'{percentile_value} · {html_lib.escape(percentile_text)}'
+            '</span>'
             '<header class="pillar-header">'
             f'<span class="pillar-icon">{PILLAR_ICONS[pillar]}</span>'
-            f'<div><h3>{title}</h3><p>{description}</p></div>'
+            f'<div><h3>{html_lib.escape(title)}</h3></div>'
             '</header>'
+            f'<p class="pillar-description">{html_lib.escape(description)}</p>'
             '<div class="score-row">'
             f'<div class="score-track"><div class="score-fill" style="width:{score_percentage:.1f}%"></div></div>'
             f'<span class="score-value">{score} / 7</span>'
             '</div>'
-            f'<span class="percentile-badge" title="{T["percentile_tooltip"].format(p=f"{percentile:.0f}")}">'
-            f'<b>{T["percentile"]}</b><strong>P{percentile:.0f}</strong><small>{percentile_text}</small>'
-            '</span>'
             '<div class="interpretation-box">'
-            f'<strong>{T["interpretation"]}</strong><p>{explanation}</p>'
+            f'<strong>{html_lib.escape(T["interpretation"])}</strong>'
+            f'<p>{html_lib.escape(explanation)}</p>'
             '</div>'
             '</article>'
         )
@@ -1098,9 +1201,11 @@ elif st.session_state.step == 3:
     # ---------------------------
     # EXTRA FEEDBACK ONDERAAN
     # ---------------------------
-    st.subheader(T["adaptivity"])
-    st.markdown(feedback(level))
-    st.markdown("---")
+    actions = feedback_actions(level)
+    if actions:
+        st.subheader(T["adaptivity"])
+        st.markdown(actions)
+        st.markdown("---")
 
     # ---------------------------
     # RESET
