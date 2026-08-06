@@ -1,4 +1,4 @@
-APP_BUILD = "2026-08-06-maturity-compact-interpretations-v1"
+APP_BUILD = "2026-08-06-maturity-benchmark-legend-v2"
 
 import streamlit as st
 from datetime import datetime
@@ -672,6 +672,38 @@ def percentile_label(percentile):
     }[key]
 
 
+def benchmark_legend_html():
+    """Compacte, meertalige uitleg van de vijf percentielbanden."""
+    items = [
+        ("P0–19", "low", T["percentile_very_low"]),
+        ("P20–39", "below_average", T["percentile_low"]),
+        ("P40–59", "average", T["percentile_middle"]),
+        ("P60–79", "above_average", T["percentile_high"]),
+        ("P80–100", "high", T["percentile_very_high"]),
+    ]
+    blocks = []
+    for value_range, band, label in items:
+        style = PERCENTILE_STYLES[band]
+        blocks.append(
+            '<div class="benchmark-band" '
+            f'style="--legend-bg:{style["background"]};'
+            f'--legend-accent:{style["accent"]};'
+            f'--legend-text:{style["text"]};">'
+            f'<span>{html_lib.escape(value_range)}</span>'
+            f'<strong>{html_lib.escape(label)}</strong>'
+            '</div>'
+        )
+    return (
+        '<section class="benchmark-legend">'
+        '<div class="benchmark-guide">'
+        '<span class="benchmark-info" aria-hidden="true">i</span>'
+        f'<p>{html_lib.escape(T["percentile_guide"])}</p>'
+        '</div>'
+        f'<div class="benchmark-scale">{"".join(blocks)}</div>'
+        '</section>'
+    )
+
+
 def pillar_interpretation(pillar, percentile):
     band = percentile_band(percentile)
     texts = PILLAR_INTERPRETATIONS.get(
@@ -836,6 +868,49 @@ h1, h2, h3 { color: var(--primary) !important; }
     text-align:center;
     white-space:normal;
 }
+.benchmark-legend { margin:.45rem 0 1.1rem; }
+.benchmark-guide {
+    display:flex;
+    align-items:flex-start;
+    gap:.65rem;
+    padding:.62rem .78rem;
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:#f8fcfd;
+}
+.benchmark-guide p { margin:0; font-size:.78rem; line-height:1.4; color:var(--text); }
+.benchmark-info {
+    flex:none;
+    width:1.25rem;
+    height:1.25rem;
+    border:1.5px solid var(--primary);
+    border-radius:50%;
+    color:var(--primary);
+    display:inline-grid;
+    place-items:center;
+    font-size:.76rem;
+    font-weight:800;
+    line-height:1;
+}
+.benchmark-scale {
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    gap:.45rem;
+    margin-top:.55rem;
+}
+.benchmark-band {
+    min-width:0;
+    padding:.48rem .58rem;
+    border-radius:9px;
+    border-top:3px solid var(--legend-accent);
+    background:var(--legend-bg);
+    color:var(--legend-text);
+    line-height:1.12;
+}
+.benchmark-band span,
+.benchmark-band strong { display:block; }
+.benchmark-band span { font-size:.68rem; font-weight:800; margin-bottom:.18rem; }
+.benchmark-band strong { font-size:.69rem; text-transform:uppercase; overflow-wrap:anywhere; }
 .interpretation-box {
     padding:.85rem;
     border-radius:10px;
@@ -1147,6 +1222,7 @@ elif st.session_state.step == 3:
         st.markdown(summary_html, unsafe_allow_html=True)
 
     st.markdown(f"## {T['pillars']}")
+    st.markdown(benchmark_legend_html(), unsafe_allow_html=True)
     cards = []
     for _, row in pivot.iterrows():
         pillar = row["pillar"]
@@ -1196,7 +1272,6 @@ elif st.session_state.step == 3:
         )
         cards.append(card_html)
     st.markdown(f'<div class="pillar-grid">{"".join(cards)}</div>', unsafe_allow_html=True)
-    st.caption(T["percentile_guide"])
 
     # ---------------------------
     # EXTRA FEEDBACK ONDERAAN
