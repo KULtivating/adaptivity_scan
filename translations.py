@@ -4,7 +4,7 @@ De itemcodes blijven in elke taal identiek. Daardoor veranderen vertalingen
 nooit de scoring of de koppeling met historische antwoorden.
 """
 
-TRANSLATIONS_BUILD = "2026-08-06-maturity-compact-interpretations-v1"
+TRANSLATIONS_BUILD = "2026-08-06-maturity-benchmark-legend-v2"
 
 LANGUAGE_NAMES = {"nl": "Nederlands", "fr": "Français", "en": "English"}
 
